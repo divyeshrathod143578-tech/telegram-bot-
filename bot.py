@@ -1,7 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -104,7 +103,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "contact":
         await query.message.edit_text(
-            "📞 Contact\n\nTelegram: @yourusername",
+            "📞 Contact\n\nTelegram: @its_cuteiii",
             reply_markup=back_menu()
         )
 

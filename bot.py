@@ -53,8 +53,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif q.data.startswith("pay_"):
         await q.message.edit_text("💳 Payment details.\n\nUpload qr.jpg later if needed.",reply_markup=price_back())
     elif q.data=="back":
-        await q.message.edit_text("Choose an option:",reply_markup=main_menu())
-    elif q.data=="demo":
+        elif q.data=="demo":
+    await q.message.edit_text(
+        "🎬 DEMO LINKS\n\n"
+        "Group 1: https://t.me/+1u-iqI31ORI2ZTQ1"
+        "Group 2: https://t.me/yourgroup2",
+        reply_markup=back_menu()
+    )
         await q.message.edit_text("🎬 Demo",reply_markup=back_menu())
     elif q.data=="contact":
         await q.message.edit_text("📞 Contact: @its_cuteiii",reply_markup=back_menu())

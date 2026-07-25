@@ -13,193 +13,288 @@ logging.basicConfig(
 )
 
 TOKEN = os.getenv("TOKEN")
+PORT = int(os.environ.get("PORT", 10000))
 
-
-# Render Web
 web = Flask(__name__)
-
 
 @web.route("/")
 def home():
     return "Bot is Running ✅"
 
+@web.route("/health")
+def health():
+    return "OK", 200
 
 def run_web():
-    web.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000))
+    web.run(host="0.0.0.0", port=PORT)
+
+# ============ AUTO DELETE FUNCTIONS ============
+
+async def delete_message_after_delay(context, chat_id, message_id, delay=30):
+    await asyncio.sleep(delay)
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except:
+        pass
+
+async def send_and_auto_delete(context, chat_id, text, reply_markup=None, parse_mode=None, delay=30, **kwargs):
+    message = await context.bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        reply_markup=reply_markup,
+        parse_mode=parse_mode,
+        **kwargs
     )
+    asyncio.create_task(delete_message_after_delay(context, chat_id, message.message_id, delay))
+    return message
 
+async def send_photo_and_auto_delete(context, chat_id, photo, caption=None, reply_markup=None, parse_mode=None, delay=30):
+    message = await context.bot.send_photo(
+        chat_id=chat_id,
+        photo=photo,
+        caption=caption,
+        reply_markup=reply_markup,
+        parse_mode=parse_mode
+    )
+    asyncio.create_task(delete_message_after_delay(context, chat_id, message.message_id, delay))
+    return message
 
-# Main Menu
+async def delete_previous_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if 'bot_message_ids' in context.user_data:
+        chat_id = update.effective_chat.id
+        for msg_id in context.user_data['bot_message_ids']:
+            try:
+                await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except:
+                pass
+        context.user_data['bot_message_ids'] = []
+
+async def store_message_id(context, chat_id, message_id):
+    if 'bot_message_ids' not in context.user_data:
+        context.user_data['bot_message_ids'] = []
+    context.user_data['bot_message_ids'].append(message_id)
+    if len(context.user_data['bot_message_ids']) > 10:
+        context.user_data['bot_message_ids'] = context.user_data['bot_message_ids'][-10:]
+
+# ============ KEYBOARDS ============
+
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
         [InlineKeyboardButton("💰 PRICE LIST", callback_data="price")],
-        [InlineKeyboardButton("📞 CONTACT", callback_data="contact")]
+        [InlineKeyboardButton("📞 CONTACT", callback_data="contact")],
+        [InlineKeyboardButton("ℹ️ ABOUT", callback_data="about")]
     ])
-
 
 def back_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 BACK", callback_data="back")]
     ])
 
-
 def price_buttons():
-
-    rows = [
-        ("₹60 - 399 Videos", "pay_60"),
-        ("₹89 - 499 Videos", "pay_89"),
-        ("₹99 - 799 Videos", "pay_99"),
-        ("₹130 - 1199 Videos", "pay_130"),
-        ("₹149 - 2500 Group", "pay_149"),
-        ("₹199 - 7999 Group", "pay_199"),
-        ("₹249 - 14999 Group", "pay_249"),
-        ("₹349 - Long Videos", "pay_349"),
-        ("₹480 - Unlimited", "pay_480"),
+    plans = [
+        ("💰 ₹60 - 399 Videos", "pay_60"),
+        ("💰 ₹89 - 499 Videos", "pay_89"),
+        ("💰 ₹99 - 799 Videos", "pay_99"),
+        ("💰 ₹130 - 1199 Videos", "pay_130"),
+        ("💰 ₹149 - 2500 Group", "pay_149"),
+        ("💰 ₹199 - 7999 Group", "pay_199"),
+        ("💰 ₹249 - 14999 Group", "pay_249"),
+        ("💰 ₹349 - Long Videos", "pay_349"),
+        ("💰 ₹480 - Unlimited", "pay_480"),
     ]
-
-    keyboard = [
-        [InlineKeyboardButton(text, callback_data=data)]
-        for text, data in rows
-    ]
-
-    keyboard.append(
-        [InlineKeyboardButton("🔙 BACK", callback_data="back")]
-    )
-
+    keyboard = [[InlineKeyboardButton(text, callback_data=data)] for text, data in plans]
+    keyboard.append([InlineKeyboardButton("🔙 BACK", callback_data="back")])
     return InlineKeyboardMarkup(keyboard)
-
 
 def price_back():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
+# ============ COMMAND HANDLERS ============
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    await update.message.reply_text(
-        f"👋 Welcome {update.effective_user.first_name}!\n\n"
-        "Choose an option below:",
-        reply_markup=main_menu()
-    )# BUTTON HANDLER
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    q = update.callback_query
-
+    user = update.effective_user
+    
+    await delete_previous_messages(update, context)
+    
+    welcome_caption = (
+        f"👋 Welcome {user.first_name}!\n\n"
+        "🌟 **Premium Video Bot**\n"
+        "----------------------\n"
+        "• High Quality Videos\n"
+        "• Instant Delivery\n"
+        "• 24/7 Support\n\n"
+        "Choose an option below:"
+    )
+    
     try:
-        await q.answer()
+        with open("welcome.jpg", "rb") as photo:
+            msg = await update.message.reply_photo(
+                photo=photo,
+                caption=welcome_caption,
+                reply_markup=main_menu(),
+                parse_mode='Markdown'
+            )
+    except FileNotFoundError:
+        msg = await update.message.reply_text(
+            welcome_caption,
+            reply_markup=main_menu(),
+            parse_mode='Markdown'
+        )
+    
+    await store_message_id(context, update.effective_chat.id, msg.message_id)
+    asyncio.create_task(delete_message_after_delay(context, update.effective_chat.id, update.message.message_id, 5))
+
+# ============ CALLBACK HANDLERS ============
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    chat_id = update.effective_chat.id
+    await delete_previous_messages(update, context)
+    
+    if query.data == "price":
+        msg = await send_and_auto_delete(
+            context,
+            chat_id,
+            "💰 **PRICE LIST**\n\nSelect your plan below:",
+            reply_markup=price_buttons(),
+            parse_mode='Markdown',
+            delay=120
+        )
+        await store_message_id(context, chat_id, msg.message_id)
+    
+    elif query.data.startswith("pay_"):
+        context.user_data['payment_time'] = datetime.now()
+        
+        try:
+            with open("qr.jpg", "rb") as photo:
+                msg = await send_photo_and_auto_delete(
+                    context,
+                    chat_id,
+                    photo=photo,
+                    caption=(
+                        "💳 **PAYMENT METHOD**\n\n"
+                        "📲 Scan QR Code to pay\n"
+                        "⏳ QR valid for 10 minutes\n\n"
+                        "✅ After payment:\n"
+                        "Send screenshot to @its_cuteiii\n\n"
+                        "❌ Payment not received within 10 mins"
+                    ),
+                    reply_markup=price_back(),
+                    parse_mode='Markdown',
+                    delay=600
+                )
+                await store_message_id(context, chat_id, msg.message_id)
+        except FileNotFoundError:
+            msg = await send_and_auto_delete(
+                context,
+                chat_id,
+                "❌ QR code not found!\nPlease contact @its_cuteiii",
+                reply_markup=price_back(),
+                delay=60
+            )
+            await store_message_id(context, chat_id, msg.message_id)
+    
+    elif query.data == "demo":
+        msg = await send_and_auto_delete(
+            context,
+            chat_id,
+            "🎬 **DEMO LINK**\n\n"
+            "👆 Click below to access:\n"
+            "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
+            "⏳ **Time Limit:** 15 minutes\n"
+            "🔒 Link will auto-expire\n\n"
+            "⚠️ For preview only",
+            reply_markup=back_menu(),
+            parse_mode='Markdown',
+            delay=120,
+            disable_web_page_preview=True
+        )
+        await store_message_id(context, chat_id, msg.message_id)
+    
+    elif query.data == "contact":
+        msg = await send_and_auto_delete(
+            context,
+            chat_id,
+            "📞 **CONTACT US**\n\n"
+            "👤 **Support:** @its_cuteiii\n\n"
+            "📱 **Telegram:**\n"
+            "https://t.me/its_cuteiii\n\n"
+            "⏰ **Response Time:** 5-10 mins\n"
+            "🕐 Available 24/7",
+            reply_markup=back_menu(),
+            parse_mode='Markdown',
+            delay=120
+        )
+        await store_message_id(context, chat_id, msg.message_id)
+    
+    elif query.data == "about":
+        msg = await send_and_auto_delete(
+            context,
+            chat_id,
+            "ℹ️ **ABOUT US**\n\n"
+            "🌟 Premium Video Provider\n"
+            "----------------------\n"
+            "✅ High Quality Content\n"
+            "✅ Instant Delivery\n"
+            "✅ 24/7 Customer Support\n"
+            "✅ Secure Payment\n\n"
+            "📌 **Features:**\n"
+            "• Latest Videos\n"
+            "• Multiple Categories\n"
+            "• Lifetime Access Options\n"
+            "• Group Plans Available",
+            reply_markup=back_menu(),
+            parse_mode='Markdown',
+            delay=120
+        )
+        await store_message_id(context, chat_id, msg.message_id)
+    
+    elif query.data == "back":
+        msg = await send_and_auto_delete(
+            context,
+            chat_id,
+            "👋 Welcome back!\n\nChoose an option below:",
+            reply_markup=main_menu(),
+            delay=120
+        )
+        await store_message_id(context, chat_id, msg.message_id)
+    
+    try:
+        await query.message.delete()
     except:
         pass
 
+# ============ ERROR HANDLER ============
 
-    if q.data == "price":
-
-        try:
-            await q.message.delete()
-        except:
-            pass
-
-        await q.message.reply_text(
-            "💰 PRICE LIST\n\nSelect your plan:",
-            reply_markup=price_buttons()
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.error(f"Update {update} caused error {context.error}")
+    
+    if update and update.effective_chat:
+        chat_id = update.effective_chat.id
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ An error occurred! Please try again later."
         )
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 10))
 
+# ============ MAIN ============
 
-    elif q.data.startswith("pay_"):
-
-        try:
-            await q.message.delete()
-        except:
-            pass
-
-
-        with open("qr.jpg", "rb") as photo:
-
-            qr_msg = await q.message.reply_photo(
-                photo=photo,
-                caption=(
-                    "💳 PAYMENT METHOD\n\n"
-                    "📲 Scan the QR Code to make payment.\n\n"
-                    "✅ After payment send screenshot to:\n"
-                    "@its_cuteiii\n\n"
-                    "⏳ QR VALID FOR 10 MINUTES\n\n"
-                    "❌ Payment not received after timeout.\n"
-                    "🔄 Generate a new QR and try again."
-                ),
-                reply_markup=price_back()
-            )
-
-
-        async def delete_qr():
-
-            await asyncio.sleep(600)
-
-            try:
-                await qr_msg.delete()
-            except:
-                pass
-
-            try:
-                await q.message.reply_text(
-                    "⏳ PAYMENT TIME EXPIRED\n\n"
-                    "❌ Payment not found.\n"
-                    "🔄 Please generate a new QR.",
-                    reply_markup=price_back()
-                )
-            except:
-                pass
-
-
-        asyncio.create_task(delete_qr())
-
-
-    elif q.data == "demo":
-
-        await q.message.edit_text(
-            "🎬 DEMO LINK\n\n"
-            "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
-            "👆🏻 Check DEMO 👆🏻\n\n"
-            "⏳ You have just 15 minutes...\n"
-            "🔒 After that, this link will be blocked ❌",
-            reply_markup=back_menu()
-        )
-
-
-    elif q.data == "contact":
-
-        await q.message.edit_text(
-            "📞 CONTACT\n\n"
-            "Username: @its_cuteiii\n\n"
-            "https://t.me/its_cuteiii",
-            reply_markup=back_menu()
-        )
-
-
-    elif q.data == "back":
-
-        await q.message.edit_text(
-            "👋 Welcome! Choose an option below:",
-            reply_markup=main_menu()
-        )
-
-
-
-# RUN BOT
 def main():
-
-    threading.Thread(target=run_web).start()
-
+    threading.Thread(target=run_web, daemon=True).start()
+    
     app = Application.builder().token(TOKEN).build()
-
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
-
-    app.run_polling()
-
-
+    app.add_error_handler(error_handler)
+    
+    logging.info("🤖 Bot is starting...")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()

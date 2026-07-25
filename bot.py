@@ -29,8 +29,6 @@ def health():
 def run_web():
     web.run(host="0.0.0.0", port=PORT)
 
-# ============ AUTO DELETE FUNCTIONS ============
-
 async def delete_message_after_delay(context, chat_id, message_id, delay=30):
     await asyncio.sleep(delay)
     try:
@@ -38,46 +36,12 @@ async def delete_message_after_delay(context, chat_id, message_id, delay=30):
     except:
         pass
 
-async def send_and_auto_delete(context, chat_id, text, reply_markup=None, parse_mode=None, delay=30, **kwargs):
-    message = await context.bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        reply_markup=reply_markup,
-        parse_mode=parse_mode,
-        **kwargs
-    )
-    asyncio.create_task(delete_message_after_delay(context, chat_id, message.message_id, delay))
-    return message
-
-async def send_photo_and_auto_delete(context, chat_id, photo, caption=None, reply_markup=None, parse_mode=None, delay=30):
-    message = await context.bot.send_photo(
-        chat_id=chat_id,
-        photo=photo,
-        caption=caption,
-        reply_markup=reply_markup,
-        parse_mode=parse_mode
-    )
-    asyncio.create_task(delete_message_after_delay(context, chat_id, message.message_id, delay))
-    return message
-
-async def delete_previous_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if 'bot_message_ids' in context.user_data:
-        chat_id = update.effective_chat.id
-        for msg_id in context.user_data['bot_message_ids']:
-            try:
-                await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-            except:
-                pass
-        context.user_data['bot_message_ids'] = []
-
 async def store_message_id(context, chat_id, message_id):
     if 'bot_message_ids' not in context.user_data:
         context.user_data['bot_message_ids'] = []
     context.user_data['bot_message_ids'].append(message_id)
     if len(context.user_data['bot_message_ids']) > 10:
         context.user_data['bot_message_ids'] = context.user_data['bot_message_ids'][-10:]
-
-# ============ KEYBOARDS ============
 
 def main_menu():
     return InlineKeyboardMarkup([
@@ -113,13 +77,11 @@ def price_back():
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
-# ============ COMMAND HANDLERS ============
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
     welcome_caption = (
-        f"👋 Welcome, {user.first_name}🦋🌷\n\n"
+        f"👋 Welcome, {user.first_name} 🦋🌷\n\n"
         "I am your Premium Subscription Bot. 🫣💗\n"
         "I can help you get instant access to our exclusive premium channels.\n\n"
         "👇 Click the button to browse our plans!"
@@ -131,18 +93,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 photo=photo,
                 caption=welcome_caption,
                 reply_markup=main_menu(),
-                parse_mode='Markdown'
+                parse_mode=None
             )
     except FileNotFoundError:
         msg = await update.message.reply_text(
             welcome_caption,
             reply_markup=main_menu(),
-            parse_mode='Markdown'
+            parse_mode=None
         )
     
     await store_message_id(context, update.effective_chat.id, msg.message_id)
-
-# ============ CALLBACK HANDLERS ============
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -153,22 +113,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "price":
         msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="💰 **PRICE LIST**\n\nSelect your plan below:",
+            text="💰 PRICE LIST\n\nSelect your plan below:",
             reply_markup=price_buttons(),
-            parse_mode='Markdown'
+            parse_mode=None
         )
         await store_message_id(context, chat_id, msg.message_id)
     
     elif query.data.startswith("pay_"):
-        context.user_data['payment_time'] = datetime.now()
-        
         try:
             with open("qr.jpg", "rb") as photo:
                 qr_msg = await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=photo,
                     caption=(
-                        "💳 **PAYMENT METHOD**\n\n"
+                        "💳 PAYMENT METHOD\n\n"
                         "📲 Scan QR Code to pay\n"
                         "⏳ QR valid for 10 minutes\n\n"
                         "✅ After payment:\n"
@@ -176,22 +134,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "❌ Payment not received within 10 mins"
                     ),
                     reply_markup=price_back(),
-                    parse_mode='Markdown'
+                    parse_mode=None
                 )
                 await store_message_id(context, chat_id, qr_msg.message_id)
                 
-                # Auto delete QR after 10 minutes
                 async def auto_delete_qr():
-                    await asyncio.sleep(600)  # 10 minutes
+                    await asyncio.sleep(600)
                     try:
                         await qr_msg.delete()
                         timeout_msg = await context.bot.send_message(
                             chat_id=chat_id,
-                            text="⏳ **PAYMENT TIMEOUT**\n\n"
-                                 "❌ Payment not received.\n"
-                                 "🔄 Please generate a new QR.",
+                            text="⏳ PAYMENT TIMEOUT\n\n❌ Payment not received.\n🔄 Please generate a new QR.",
                             reply_markup=price_back(),
-                            parse_mode='Markdown'
+                            parse_mode=None
                         )
                         await store_message_id(context, chat_id, timeout_msg.message_id)
                     except:
@@ -203,21 +158,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = await context.bot.send_message(
                 chat_id=chat_id,
                 text="❌ QR code not found!\nPlease contact @its_cuteiii",
-                reply_markup=price_back()
+                reply_markup=price_back(),
+                parse_mode=None
             )
             await store_message_id(context, chat_id, msg.message_id)
     
     elif query.data == "demo":
         msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="🎬 **DEMO LINK**\n\n"
-                 "👆 Click below to access:\n"
-                 "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
-                 "⏳ **Time Limit:** 15 minutes\n"
-                 "🔒 Link will auto-expire\n\n"
-                 "⚠️ For preview only",
+            text="🎬 DEMO LINK\n\n👆 Click below to access:\nhttps://t.me/+1u-iqI31ORI2ZTQ1\n\n⏳ Time Limit: 15 minutes\n🔒 Link will auto-expire\n\n⚠️ For preview only",
             reply_markup=back_menu(),
-            parse_mode='Markdown',
+            parse_mode=None,
             disable_web_page_preview=True
         )
         await store_message_id(context, chat_id, msg.message_id)
@@ -225,34 +176,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "contact":
         msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="📞 **CONTACT US**\n\n"
-                 "👤 **Support:** @its_cuteiii\n\n"
-                 "📱 **Telegram:**\n"
-                 "https://t.me/its_cuteiii\n\n"
-                 "⏰ **Response Time:** 5-10 mins\n"
-                 "🕐 Available 24/7",
+            text="📞 CONTACT US\n\n👤 Support: @its_cuteiii\n\n📱 Telegram:\nhttps://t.me/its_cuteiii\n\n⏰ Response Time: 5-10 mins\n🕐 Available 24/7",
             reply_markup=back_menu(),
-            parse_mode='Markdown'
+            parse_mode=None
         )
         await store_message_id(context, chat_id, msg.message_id)
     
     elif query.data == "about":
         msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="ℹ️ **ABOUT US**\n\n"
-                 "🌟 Premium Video Provider\n"
-                 "----------------------\n"
-                 "✅ High Quality Content\n"
-                 "✅ Instant Delivery\n"
-                 "✅ 24/7 Customer Support\n"
-                 "✅ Secure Payment\n\n"
-                 "📌 **Features:**\n"
-                 "• Latest Videos\n"
-                 "• Multiple Categories\n"
-                 "• Lifetime Access Options\n"
-                 "• Group Plans Available",
+            text="ℹ️ ABOUT US\n\n🌟 Premium Video Provider\n----------------------\n✅ High Quality Content\n✅ Instant Delivery\n✅ 24/7 Customer Support\n✅ Secure Payment\n\n📌 Features:\n• Latest Videos\n• Multiple Categories\n• Lifetime Access Options\n• Group Plans Available",
             reply_markup=back_menu(),
-            parse_mode='Markdown'
+            parse_mode=None
         )
         await store_message_id(context, chat_id, msg.message_id)
     
@@ -260,7 +195,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = await context.bot.send_message(
             chat_id=chat_id,
             text="👋 Welcome back!\n\nChoose an option below:",
-            reply_markup=main_menu()
+            reply_markup=main_menu(),
+            parse_mode=None
         )
         await store_message_id(context, chat_id, msg.message_id)
     
@@ -269,8 +205,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
 
-# ============ ERROR HANDLER ============
-
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Update {update} caused error {context.error}")
     
@@ -278,11 +212,10 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
         msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="❌ An error occurred! Please try again later."
+            text="❌ An error occurred! Please try again later.",
+            parse_mode=None
         )
         asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 10))
-
-# ============ MAIN ============
 
 def main():
     threading.Thread(target=run_web, daemon=True).start()

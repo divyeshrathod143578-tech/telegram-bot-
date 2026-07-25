@@ -2,6 +2,7 @@ import os
 import logging
 import threading
 import asyncio
+from datetime import datetime
 
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -117,16 +118,11 @@ def price_back():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
-    await delete_previous_messages(update, context)
-    
     welcome_caption = (
-        f"👋 Welcome {user.first_name}!\n\n"
-        "🌟 **Premium Video Bot**\n"
-        "----------------------\n"
-        "• High Quality Videos\n"
-        "• Instant Delivery\n"
-        "• 24/7 Support\n\n"
-        "Choose an option below:"
+        f"👋 Welcome, {user.first_name}🦋🌷\n\n"
+        "I am your Premium Subscription Bot. 🫣💗\n"
+        "I can help you get instant access to our exclusive premium channels.\n\n"
+        "👇 Click the button to browse our plans!"
     )
     
     try:
@@ -145,7 +141,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     await store_message_id(context, update.effective_chat.id, msg.message_id)
-    asyncio.create_task(delete_message_after_delay(context, update.effective_chat.id, update.message.message_id, 5))
 
 # ============ CALLBACK HANDLERS ============
 
@@ -154,16 +149,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     chat_id = update.effective_chat.id
-    await delete_previous_messages(update, context)
     
     if query.data == "price":
-        msg = await send_and_auto_delete(
-            context,
-            chat_id,
-            "💰 **PRICE LIST**\n\nSelect your plan below:",
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text="💰 **PRICE LIST**\n\nSelect your plan below:",
             reply_markup=price_buttons(),
-            parse_mode='Markdown',
-            delay=120
+            parse_mode='Markdown'
         )
         await store_message_id(context, chat_id, msg.message_id)
     
@@ -172,9 +164,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         try:
             with open("qr.jpg", "rb") as photo:
-                msg = await send_photo_and_auto_delete(
-                    context,
-                    chat_id,
+                qr_msg = await context.bot.send_photo(
+                    chat_id=chat_id,
                     photo=photo,
                     caption=(
                         "💳 **PAYMENT METHOD**\n\n"
@@ -185,82 +176,91 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         "❌ Payment not received within 10 mins"
                     ),
                     reply_markup=price_back(),
-                    parse_mode='Markdown',
-                    delay=600
+                    parse_mode='Markdown'
                 )
-                await store_message_id(context, chat_id, msg.message_id)
+                await store_message_id(context, chat_id, qr_msg.message_id)
+                
+                # Auto delete QR after 10 minutes
+                async def auto_delete_qr():
+                    await asyncio.sleep(600)  # 10 minutes
+                    try:
+                        await qr_msg.delete()
+                        timeout_msg = await context.bot.send_message(
+                            chat_id=chat_id,
+                            text="⏳ **PAYMENT TIMEOUT**\n\n"
+                                 "❌ Payment not received.\n"
+                                 "🔄 Please generate a new QR.",
+                            reply_markup=price_back(),
+                            parse_mode='Markdown'
+                        )
+                        await store_message_id(context, chat_id, timeout_msg.message_id)
+                    except:
+                        pass
+                
+                asyncio.create_task(auto_delete_qr())
+                
         except FileNotFoundError:
-            msg = await send_and_auto_delete(
-                context,
-                chat_id,
-                "❌ QR code not found!\nPlease contact @its_cuteiii",
-                reply_markup=price_back(),
-                delay=60
+            msg = await context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ QR code not found!\nPlease contact @its_cuteiii",
+                reply_markup=price_back()
             )
             await store_message_id(context, chat_id, msg.message_id)
     
     elif query.data == "demo":
-        msg = await send_and_auto_delete(
-            context,
-            chat_id,
-            "🎬 **DEMO LINK**\n\n"
-            "👆 Click below to access:\n"
-            "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
-            "⏳ **Time Limit:** 15 minutes\n"
-            "🔒 Link will auto-expire\n\n"
-            "⚠️ For preview only",
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text="🎬 **DEMO LINK**\n\n"
+                 "👆 Click below to access:\n"
+                 "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
+                 "⏳ **Time Limit:** 15 minutes\n"
+                 "🔒 Link will auto-expire\n\n"
+                 "⚠️ For preview only",
             reply_markup=back_menu(),
             parse_mode='Markdown',
-            delay=120,
             disable_web_page_preview=True
         )
         await store_message_id(context, chat_id, msg.message_id)
     
     elif query.data == "contact":
-        msg = await send_and_auto_delete(
-            context,
-            chat_id,
-            "📞 **CONTACT US**\n\n"
-            "👤 **Support:** @its_cuteiii\n\n"
-            "📱 **Telegram:**\n"
-            "https://t.me/its_cuteiii\n\n"
-            "⏰ **Response Time:** 5-10 mins\n"
-            "🕐 Available 24/7",
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text="📞 **CONTACT US**\n\n"
+                 "👤 **Support:** @its_cuteiii\n\n"
+                 "📱 **Telegram:**\n"
+                 "https://t.me/its_cuteiii\n\n"
+                 "⏰ **Response Time:** 5-10 mins\n"
+                 "🕐 Available 24/7",
             reply_markup=back_menu(),
-            parse_mode='Markdown',
-            delay=120
+            parse_mode='Markdown'
         )
         await store_message_id(context, chat_id, msg.message_id)
     
     elif query.data == "about":
-        msg = await send_and_auto_delete(
-            context,
-            chat_id,
-            "ℹ️ **ABOUT US**\n\n"
-            "🌟 Premium Video Provider\n"
-            "----------------------\n"
-            "✅ High Quality Content\n"
-            "✅ Instant Delivery\n"
-            "✅ 24/7 Customer Support\n"
-            "✅ Secure Payment\n\n"
-            "📌 **Features:**\n"
-            "• Latest Videos\n"
-            "• Multiple Categories\n"
-            "• Lifetime Access Options\n"
-            "• Group Plans Available",
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text="ℹ️ **ABOUT US**\n\n"
+                 "🌟 Premium Video Provider\n"
+                 "----------------------\n"
+                 "✅ High Quality Content\n"
+                 "✅ Instant Delivery\n"
+                 "✅ 24/7 Customer Support\n"
+                 "✅ Secure Payment\n\n"
+                 "📌 **Features:**\n"
+                 "• Latest Videos\n"
+                 "• Multiple Categories\n"
+                 "• Lifetime Access Options\n"
+                 "• Group Plans Available",
             reply_markup=back_menu(),
-            parse_mode='Markdown',
-            delay=120
+            parse_mode='Markdown'
         )
         await store_message_id(context, chat_id, msg.message_id)
     
     elif query.data == "back":
-        msg = await send_and_auto_delete(
-            context,
-            chat_id,
-            "👋 Welcome back!\n\nChoose an option below:",
-            reply_markup=main_menu(),
-            delay=120
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text="👋 Welcome back!\n\nChoose an option below:",
+            reply_markup=main_menu()
         )
         await store_message_id(context, chat_id, msg.message_id)
     

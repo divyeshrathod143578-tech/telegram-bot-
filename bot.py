@@ -79,15 +79,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=price_buttons()
         )
 
-  elif q.data == "demo":
-    await q.message.edit_text(
-        "🎬 DEMO LINK\n\n"
-        "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
-        "👆🏻 Check DEMO 👆🏻\n\n"
-        "⏳ You have just 15 minutes...\n"
-        "🔒 After that, this link will be blocked ❌",
-        reply_markup=back_menu()
-    )
+    elif q.data == "demo":
+        await q.message.edit_text(
+            "🎬 DEMO LINK\n\n"
+            "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
+            "👆🏻 Check DEMO 👆🏻\n\n"
+            "⏳ You have just 15 minutes...\n"
+            "🔒 After that, this link will be blocked ❌",
+            reply_markup=back_menu()
+        )
 
     elif q.data == "contact":
         await q.message.edit_text(
@@ -96,7 +96,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "https://t.me/its_cuteiii",
             reply_markup=back_menu()
         )
-
     elif q.data == "back":
         await q.message.edit_text(
             "Choose an option:",

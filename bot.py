@@ -1,6 +1,8 @@
 import os
 import logging
 import threading
+import asyncio
+
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -12,17 +14,24 @@ logging.basicConfig(
 
 TOKEN = os.getenv("TOKEN")
 
+
 # Flask for Render
 web = Flask(__name__)
+
 
 @web.route("/")
 def home():
     return "Bot is Running ✅"
 
+
 def run_web():
-    web.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    web.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
 
 
+# MAIN MENU
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
@@ -31,12 +40,14 @@ def main_menu():
     ])
 
 
+# BACK BUTTON
 def back_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 BACK", callback_data="back")]
     ])
 
 
+# PRICE BUTTONS
 def price_buttons():
     rows = [
         ("₹60 - 399 Videos", "pay_60"),
@@ -50,18 +61,26 @@ def price_buttons():
         ("₹480 - Unlimited", "pay_480"),
     ]
 
-    keyboard = [[InlineKeyboardButton(text, callback_data=data)] for text, data in rows]
-    keyboard.append([InlineKeyboardButton("🔙 BACK", callback_data="back")])
+    keyboard = [
+        [InlineKeyboardButton(text, callback_data=data)]
+        for text, data in rows
+    ]
+
+    keyboard.append([
+        InlineKeyboardButton("🔙 BACK", callback_data="back")
+    ])
 
     return InlineKeyboardMarkup(keyboard)
 
 
+# QR BACK
 def price_back():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
 
+# START
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"👋 Welcome {update.effective_user.first_name}!\n\nChoose an option below:",
@@ -69,18 +88,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# BUTTON HANDLER
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
+
     if q.data == "price":
+
         await q.message.edit_text(
             "💰 PRICE LIST\n\nSelect your plan:",
             reply_markup=price_buttons()
         )
 
+
     elif q.data.startswith("pay_"):
+
+        try:
+            await q.message.delete()
+        except:
+            pass
+
+
         with open("qr.jpg", "rb") as photo:
+
             qr_msg = await q.message.reply_photo(
                 photo=photo,
                 caption=(
@@ -89,20 +120,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "✅ After payment send screenshot to:\n"
                     "@its_cuteiii\n\n"
                     "⏳ QR VALID FOR 5 MINUTES\n\n"
-                    "❌ After timeout payment will not be accepted.\n"
+                    "❌ TIME OUT! Payment not found.\n"
                     "🔄 Generate a new QR and try again."
                 ),
                 reply_markup=price_back()
             )
 
+
         await asyncio.sleep(300)
+
 
         try:
             await qr_msg.delete()
         except:
             pass
 
+
+
     elif q.data == "demo":
+
         await q.message.edit_text(
             "🎬 DEMO LINK\n\n"
             "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
@@ -112,7 +148,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back_menu()
         )
 
+
+
     elif q.data == "contact":
+
         await q.message.edit_text(
             "📞 CONTACT\n\n"
             "Username: @its_cuteiii\n\n"
@@ -120,31 +159,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back_menu()
         )
 
-    elif q.data == "demo":
-        await q.message.edit_text(
-            "🎬 DEMO LINK\n\n"
-            "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
-            "👆🏻 Check DEMO 👆🏻\n\n"
-            "⏳ You have just 15 minutes...\n"
-            "🔒 After that, this link will be blocked ❌",
-            reply_markup=back_menu()
-        )
 
-    elif q.data == "contact":
-        await q.message.edit_text(
-            "📞 CONTACT\n\n"
-            "Username: @its_cuteiii\n\n"
-            "https://t.me/its_cuteiii",
-            reply_markup=back_menu()
-        )
+
     elif q.data == "back":
+
         await q.message.edit_text(
-            "Choose an option:",
+            "👋 Welcome! Choose an option below:",
             reply_markup=main_menu()
         )
 
 
+
+# RUN BOT
 def main():
+
     threading.Thread(target=run_web).start()
 
     app = Application.builder().token(TOKEN).build()
@@ -153,6 +181,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
 
     app.run_polling()
+
 
 
 if __name__ == "__main__":

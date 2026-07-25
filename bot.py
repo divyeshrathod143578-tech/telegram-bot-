@@ -79,19 +79,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=price_buttons()
         )
 
-    elif q.data.startswith("pay_"):
-    with open("qr.jpg", "rb") as photo:
-        await q.message.reply_photo(
-            photo=photo,
-            caption=(
-                "💳 PAYMENT DETAILS\n\n"
-                "📲 Scan the QR Code to make payment.\n\n"
-                "✅ After payment send screenshot to:\n"
-                "@its_cuteiii"
-            ),
-            reply_markup=price_back()
-        )
-
   elif q.data == "demo":
     await q.message.edit_text(
         "🎬 DEMO LINK\n\n"

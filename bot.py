@@ -80,20 +80,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif q.data.startswith("pay_"):
-        await q.message.edit_text(
-            "💳 Payment Details\n\n"
-            "✅ After payment send screenshot to:\n"
-            "@its_cuteiii",
+    with open("qr.jpg", "rb") as photo:
+        await q.message.reply_photo(
+            photo=photo,
+            caption=(
+                "💳 PAYMENT DETAILS\n\n"
+                "📲 Scan the QR Code to make payment.\n\n"
+                "✅ After payment send screenshot to:\n"
+                "@its_cuteiii"
+            ),
             reply_markup=price_back()
         )
 
-    elif q.data == "demo":
-        await q.message.edit_text(
-            "🎬 DEMO LINKS\n\n"
-            "📂 Group 1: https://t.me/+1u-iqI31ORI2ZTQ1"
-            "📂 Group 2: https://t.me/yourgroup2",
-            reply_markup=back_menu()
-        )
+  elif q.data == "demo":
+    await q.message.edit_text(
+        "🎬 DEMO LINK\n\n"
+        "https://t.me/+1u-iqI31ORI2ZTQ1\n\n"
+        "👆🏻 Check DEMO 👆🏻\n\n"
+        "⏳ You have just 15 minutes...\n"
+        "🔒 After that, this link will be blocked ❌",
+        reply_markup=back_menu()
+    )
 
     elif q.data == "contact":
         await q.message.edit_text(

@@ -15,6 +15,7 @@ logging.basicConfig(
 TOKEN = os.getenv("TOKEN")
 
 
+# Render Web
 web = Flask(__name__)
 
 
@@ -30,6 +31,7 @@ def run_web():
     )
 
 
+# Main Menu
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
@@ -131,20 +133,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
-        await asyncio.sleep(600)
+        async def delete_qr():
 
-        try:
-            await qr_msg.delete()
-        except:
-            pass
+            await asyncio.sleep(600)
+
+            try:
+                await qr_msg.delete()
+            except:
+                pass
+
+            try:
+                await q.message.reply_text(
+                    "⏳ PAYMENT TIME EXPIRED\n\n"
+                    "❌ Payment not found.\n"
+                    "🔄 Please generate a new QR.",
+                    reply_markup=price_back()
+                )
+            except:
+                pass
 
 
-        await q.message.reply_text(
-            "⏳ PAYMENT TIME EXPIRED\n\n"
-            "❌ Payment not found.\n"
-            "🔄 Please generate a new QR.",
-            reply_markup=price_back()
-        )
+        asyncio.create_task(delete_qr())
 
 
     elif q.data == "demo":
@@ -177,6 +186,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+
 # RUN BOT
 def main():
 
@@ -188,6 +198,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
 
     app.run_polling()
+
 
 
 if __name__ == "__main__":

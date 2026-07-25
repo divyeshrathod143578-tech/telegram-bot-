@@ -15,7 +15,6 @@ logging.basicConfig(
 TOKEN = os.getenv("TOKEN")
 
 
-# Flask for Render
 web = Flask(__name__)
 
 
@@ -31,7 +30,6 @@ def run_web():
     )
 
 
-# MAIN MENU
 def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
@@ -40,15 +38,14 @@ def main_menu():
     ])
 
 
-# BACK BUTTON
 def back_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 BACK", callback_data="back")]
     ])
 
 
-# PRICE BUTTONS
 def price_buttons():
+
     rows = [
         ("₹60 - 399 Videos", "pay_60"),
         ("₹89 - 499 Videos", "pay_89"),
@@ -66,37 +63,44 @@ def price_buttons():
         for text, data in rows
     ]
 
-    keyboard.append([
-        InlineKeyboardButton("🔙 BACK", callback_data="back")
-    ])
+    keyboard.append(
+        [InlineKeyboardButton("🔙 BACK", callback_data="back")]
+    )
 
     return InlineKeyboardMarkup(keyboard)
 
 
-# QR BACK
 def price_back():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
 
-# START
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     await update.message.reply_text(
-        f"👋 Welcome {update.effective_user.first_name}!\n\nChoose an option below:",
+        f"👋 Welcome {update.effective_user.first_name}!\n\n"
+        "Choose an option below:",
         reply_markup=main_menu()
-    )
-
-
-# BUTTON HANDLER
+    )# BUTTON HANDLER
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     q = update.callback_query
-    await q.answer()
+
+    try:
+        await q.answer()
+    except:
+        pass
 
 
     if q.data == "price":
 
-        await q.message.edit_text(
+        try:
+            await q.message.delete()
+        except:
+            pass
+
+        await q.message.reply_text(
             "💰 PRICE LIST\n\nSelect your plan:",
             reply_markup=price_buttons()
         )
@@ -119,22 +123,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "📲 Scan the QR Code to make payment.\n\n"
                     "✅ After payment send screenshot to:\n"
                     "@its_cuteiii\n\n"
-                    "⏳ QR VALID FOR 5 MINUTES\n\n"
-                    "❌ TIME OUT! Payment not found.\n"
+                    "⏳ QR VALID FOR 10 MINUTES\n\n"
+                    "❌ Payment not received after timeout.\n"
                     "🔄 Generate a new QR and try again."
                 ),
                 reply_markup=price_back()
             )
 
 
-        await asyncio.sleep(300)
-
+        await asyncio.sleep(600)
 
         try:
             await qr_msg.delete()
         except:
             pass
 
+
+        await q.message.reply_text(
+            "⏳ PAYMENT TIME EXPIRED\n\n"
+            "❌ Payment not found.\n"
+            "🔄 Please generate a new QR.",
+            reply_markup=price_back()
+        )
 
 
     elif q.data == "demo":
@@ -149,7 +159,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-
     elif q.data == "contact":
 
         await q.message.edit_text(
@@ -160,14 +169,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-
     elif q.data == "back":
 
         await q.message.edit_text(
             "👋 Welcome! Choose an option below:",
             reply_markup=main_menu()
         )
-
 
 
 # RUN BOT
@@ -181,7 +188,6 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
 
     app.run_polling()
-
 
 
 if __name__ == "__main__":

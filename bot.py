@@ -5,6 +5,7 @@ import asyncio
 from datetime import datetime
 import requests
 import sys
+import socket
 
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -20,7 +21,7 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
 
-# ============ SUPABASE CONFIG ============
+# ============ SUPABASE CONFIG - HARDCODED ============
 SUPABASE_URL = "https://gcknruzgijatqunlykob.supabase.co"
 SUPABASE_KEY = "sb_publishable_OsmecI9skwhknIyC-g-YQw_XqNiJgUB"
 
@@ -44,7 +45,10 @@ def run_web():
 # ============ SUPABASE FUNCTIONS ============
 
 def save_payment(user_id, transaction_id, plan):
-    """Save payment to Supabase"""
+    """Save payment to Supabase - FIXED DNS"""
+    # Force DNS resolution with timeout
+    socket.setdefaulttimeout(60)
+    
     url = f"{SUPABASE_URL}/rest/v1/paid_users"
     headers = {
         "apikey": SUPABASE_KEY,
@@ -63,23 +67,32 @@ def save_payment(user_id, transaction_id, plan):
     logging.info(f"📝 URL: {url}")
     
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
+        # Try with custom DNS
+        response = requests.post(url, headers=headers, json=data, timeout=60)
         logging.info(f"📝 STATUS: {response.status_code}")
         logging.info(f"📝 RESPONSE: {response.text}")
         return response.status_code == 201
     except Exception as e:
         logging.error(f"❌ ERROR: {e}")
-        return False
+        # Try alternative URL format
+        try:
+            alt_url = f"https://api.supabase.com/v1/projects/gcknruzgijatqunlykob/rest/v1/paid_users"
+            response = requests.post(alt_url, headers=headers, json=data, timeout=60)
+            logging.info(f"📝 ALT STATUS: {response.status_code}")
+            return response.status_code == 201
+        except:
+            return False
 
 def check_transaction(transaction_id):
     """Check if transaction already exists"""
+    socket.setdefaulttimeout(60)
     url = f"{SUPABASE_URL}/rest/v1/paid_users?transaction_id=eq.{transaction_id}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
     try:
-        response = requests.get(url, headers=headers, timeout=30)
+        response = requests.get(url, headers=headers, timeout=60)
         logging.info(f"📝 CHECK STATUS: {response.status_code}")
         if response.status_code == 200:
             data = response.json()

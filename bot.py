@@ -29,6 +29,8 @@ def health():
 def run_web():
     web.run(host="0.0.0.0", port=PORT)
 
+# ============ AUTO DELETE FUNCTIONS ============
+
 async def delete_message_after_delay(context, chat_id, message_id, delay=30):
     await asyncio.sleep(delay)
     try:
@@ -36,19 +38,33 @@ async def delete_message_after_delay(context, chat_id, message_id, delay=30):
     except:
         pass
 
-async def store_message_id(context, chat_id, message_id):
-    if 'bot_message_ids' not in context.user_data:
-        context.user_data['bot_message_ids'] = []
-    context.user_data['bot_message_ids'].append(message_id)
-    if len(context.user_data['bot_message_ids']) > 10:
-        context.user_data['bot_message_ids'] = context.user_data['bot_message_ids'][-10:]
+async def delete_all_previous_messages(context, chat_id):
+    try:
+        if 'all_bot_messages' in context.user_data:
+            for msg_id in context.user_data['all_bot_messages']:
+                try:
+                    await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                except:
+                    pass
+            context.user_data['all_bot_messages'] = []
+    except:
+        pass
+
+async def store_all_message_id(context, chat_id, message_id):
+    if 'all_bot_messages' not in context.user_data:
+        context.user_data['all_bot_messages'] = []
+    context.user_data['all_bot_messages'].append(message_id)
+    if len(context.user_data['all_bot_messages']) > 20:
+        context.user_data['all_bot_messages'] = context.user_data['all_bot_messages'][-20:]
+
+# ============ KEYBOARDS ============
 
 def main_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
+        [InlineKeyboardButton("💵 DEMO", callback_data="demo")],
         [InlineKeyboardButton("💰 PRICE LIST", callback_data="price")],
-        [InlineKeyboardButton("📞 CONTACT", callback_data="contact")],
-        [InlineKeyboardButton("ℹ️ ABOUT", callback_data="about")]
+        [InlineKeyboardButton("🛒 CONTACT", callback_data="contact")],
+        [InlineKeyboardButton("📧 ABOUT", callback_data="about")]
     ])
 
 def back_menu():
@@ -77,38 +93,58 @@ def price_back():
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    
+# ============ WELCOME MESSAGE FUNCTION ============
+
+async def send_welcome_message(chat_id, context):
     welcome_caption = (
-        f"👋 Welcome, {user.first_name} 🦋🌷\n\n"
-        "I am your Premium Subscription Bot. 🫣💗\n"
+        "👋 Welcome, It's 🦋🌷\n\n"
+        "I am your Premium Subscription Bot. 😍😍\n"
         "I can help you get instant access to our exclusive premium channels.\n\n"
-        "👇 Click the button to browse our plans!"
+        "👀 Click the button to browse our plans!"
     )
     
     try:
         with open("welcome.jpg", "rb") as photo:
-            msg = await update.message.reply_photo(
+            msg = await context.bot.send_photo(
+                chat_id=chat_id,
                 photo=photo,
                 caption=welcome_caption,
                 reply_markup=main_menu(),
                 parse_mode=None
             )
     except FileNotFoundError:
-        msg = await update.message.reply_text(
-            welcome_caption,
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=welcome_caption,
             reply_markup=main_menu(),
             parse_mode=None
         )
     
-    await store_message_id(context, update.effective_chat.id, msg.message_id)
+    await store_all_message_id(context, chat_id, msg.message_id)
+    return msg
+
+# ============ COMMAND HANDLERS ============
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    
+    await delete_all_previous_messages(context, chat_id)
+    await send_welcome_message(chat_id, context)
+    
+    asyncio.create_task(delete_message_after_delay(context, chat_id, update.message.message_id, 5))
+
+# ============ CALLBACK HANDLERS ============
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     chat_id = update.effective_chat.id
+    
+    try:
+        await query.message.delete()
+    except:
+        pass
     
     if query.data == "price":
         msg = await context.bot.send_message(
@@ -117,7 +153,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=price_buttons(),
             parse_mode=None
         )
-        await store_message_id(context, chat_id, msg.message_id)
+        await store_all_message_id(context, chat_id, msg.message_id)
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
     
     elif query.data.startswith("pay_"):
         try:
@@ -136,7 +173,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=price_back(),
                     parse_mode=None
                 )
-                await store_message_id(context, chat_id, qr_msg.message_id)
+                await store_all_message_id(context, chat_id, qr_msg.message_id)
                 
                 async def auto_delete_qr():
                     await asyncio.sleep(600)
@@ -148,7 +185,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             reply_markup=price_back(),
                             parse_mode=None
                         )
-                        await store_message_id(context, chat_id, timeout_msg.message_id)
+                        await store_all_message_id(context, chat_id, timeout_msg.message_id)
+                        asyncio.create_task(delete_message_after_delay(context, chat_id, timeout_msg.message_id, 30))
                     except:
                         pass
                 
@@ -161,17 +199,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=price_back(),
                 parse_mode=None
             )
-            await store_message_id(context, chat_id, msg.message_id)
+            await store_all_message_id(context, chat_id, msg.message_id)
+            asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 60))
     
     elif query.data == "demo":
         msg = await context.bot.send_message(
             chat_id=chat_id,
-            text="🎬 DEMO LINK\n\n👆 Click below to access:\nhttps://t.me/+1u-iqI31ORI2ZTQ1\n\n⏳ Time Limit: 15 minutes\n🔒 Link will auto-expire\n\n⚠️ For preview only",
+            text="🎬 DEMO LINK\n\n👆 Click below to access:\nhttps://t.me/+gywxm8qaCkIzYzI1\n\n⏳ Time Limit: 15 minutes\n🔒 Link will auto-expire\n\n⚠️ For preview only",
             reply_markup=back_menu(),
             parse_mode=None,
             disable_web_page_preview=True
         )
-        await store_message_id(context, chat_id, msg.message_id)
+        await store_all_message_id(context, chat_id, msg.message_id)
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
     
     elif query.data == "contact":
         msg = await context.bot.send_message(
@@ -180,7 +220,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back_menu(),
             parse_mode=None
         )
-        await store_message_id(context, chat_id, msg.message_id)
+        await store_all_message_id(context, chat_id, msg.message_id)
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
     
     elif query.data == "about":
         msg = await context.bot.send_message(
@@ -189,21 +230,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back_menu(),
             parse_mode=None
         )
-        await store_message_id(context, chat_id, msg.message_id)
+        await store_all_message_id(context, chat_id, msg.message_id)
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
     
     elif query.data == "back":
-        msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text="👋 Welcome back!\n\nChoose an option below:",
-            reply_markup=main_menu(),
-            parse_mode=None
-        )
-        await store_message_id(context, chat_id, msg.message_id)
-    
-    try:
-        await query.message.delete()
-    except:
-        pass
+        await delete_all_previous_messages(context, chat_id)
+        await send_welcome_message(chat_id, context)
+
+# ============ ERROR HANDLER ============
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Update {update} caused error {context.error}")
@@ -216,6 +250,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=None
         )
         asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 10))
+
+# ============ MAIN ============
 
 def main():
     threading.Thread(target=run_web, daemon=True).start()

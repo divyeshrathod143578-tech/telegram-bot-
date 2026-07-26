@@ -50,14 +50,20 @@ def save_payment(user_id, transaction_id, plan):
         "Prefer": "return=minimal"
     }
     data = {
-        "user_id": user_id,
+        "user_id": str(user_id),
         "transaction_id": transaction_id,
         "plan": plan
     }
+    
+    print(f"📝 Saving to Supabase: {data}")
+    
     try:
         response = requests.post(url, headers=headers, json=data)
+        print(f"📝 Response Status: {response.status_code}")
+        print(f"📝 Response Text: {response.text}")
         return response.status_code == 201
-    except:
+    except Exception as e:
+        print(f"❌ Save Error: {e}")
         return False
 
 def check_transaction(transaction_id):
@@ -69,11 +75,13 @@ def check_transaction(transaction_id):
     }
     try:
         response = requests.get(url, headers=headers)
+        print(f"📝 Check Response: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
             return len(data) > 0
         return False
-    except:
+    except Exception as e:
+        print(f"❌ Check Error: {e}")
         return False
 
 # ============ AUTO DELETE FUNCTIONS ============
@@ -297,6 +305,8 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     text = update.message.text.strip()
+    
+    print(f"📝 Received TX: {text} from user {user_id}")
     
     # Check if user is in payment mode
     if 'selected_plan' not in context.user_data:

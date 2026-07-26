@@ -51,20 +51,26 @@ def save_payment(user_id, transaction_id, plan):
     }
     data = {
         "user_id": str(user_id),
-        "transaction_id": transaction_id,
-        "plan": plan,
+        "transaction_id": str(transaction_id),
+        "plan": str(plan),
         "payment_status": "completed"
     }
     
-    print(f"📝 Saving to Supabase: {data}")
+    print(f"📝 SENDING: {data}")
+    print(f"📝 URL: {url}")
     
     try:
         response = requests.post(url, headers=headers, json=data)
-        print(f"📝 Response Status: {response.status_code}")
-        print(f"📝 Response Text: {response.text}")
-        return response.status_code == 201
+        print(f"📝 STATUS: {response.status_code}")
+        print(f"📝 RESPONSE: {response.text}")
+        
+        if response.status_code == 201:
+            return True
+        else:
+            print(f"❌ Failed with status: {response.status_code}")
+            return False
     except Exception as e:
-        print(f"❌ Save Error: {e}")
+        print(f"❌ ERROR: {e}")
         return False
 
 def check_transaction(transaction_id):
@@ -76,13 +82,13 @@ def check_transaction(transaction_id):
     }
     try:
         response = requests.get(url, headers=headers)
-        print(f"📝 Check Response: {response.status_code}")
+        print(f"📝 CHECK STATUS: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
             return len(data) > 0
         return False
     except Exception as e:
-        print(f"❌ Check Error: {e}")
+        print(f"❌ CHECK ERROR: {e}")
         return False
 
 # ============ AUTO DELETE FUNCTIONS ============

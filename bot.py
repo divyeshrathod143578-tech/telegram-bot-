@@ -52,7 +52,8 @@ def save_payment(user_id, transaction_id, plan):
     data = {
         "user_id": str(user_id),
         "transaction_id": transaction_id,
-        "plan": plan
+        "plan": plan,
+        "payment_status": "completed"
     }
     
     print(f"📝 Saving to Supabase: {data}")

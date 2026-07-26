@@ -56,21 +56,21 @@ def save_payment(user_id, transaction_id, plan):
         "payment_status": "completed"
     }
     
-    print(f"📝 SENDING: {data}")
-    print(f"📝 URL: {url}")
+    logging.info(f"📝 SENDING TO SUPABASE: {data}")
     
     try:
         response = requests.post(url, headers=headers, json=data)
-        print(f"📝 STATUS: {response.status_code}")
-        print(f"📝 RESPONSE: {response.text}")
+        logging.info(f"📝 STATUS: {response.status_code}")
+        logging.info(f"📝 RESPONSE: {response.text}")
         
         if response.status_code == 201:
+            logging.info("✅ Payment saved successfully!")
             return True
         else:
-            print(f"❌ Failed with status: {response.status_code}")
+            logging.error(f"❌ Failed with status: {response.status_code}")
             return False
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        logging.error(f"❌ ERROR: {e}")
         return False
 
 def check_transaction(transaction_id):
@@ -82,13 +82,14 @@ def check_transaction(transaction_id):
     }
     try:
         response = requests.get(url, headers=headers)
-        print(f"📝 CHECK STATUS: {response.status_code}")
+        logging.info(f"📝 CHECK STATUS: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
+            logging.info(f"📝 FOUND {len(data)} records")
             return len(data) > 0
         return False
     except Exception as e:
-        print(f"❌ CHECK ERROR: {e}")
+        logging.error(f"❌ CHECK ERROR: {e}")
         return False
 
 # ============ AUTO DELETE FUNCTIONS ============
@@ -313,7 +314,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat_id = update.effective_chat.id
     text = update.message.text.strip()
     
-    print(f"📝 Received TX: {text} from user {user_id}")
+    logging.info(f"📝 Received TX: {text} from user {user_id}")
     
     # Check if user is in payment mode
     if 'selected_plan' not in context.user_data:
@@ -355,6 +356,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
             del context.user_data['selected_plan']
             
         except Exception as e:
+            logging.error(f"❌ Group add error: {e}")
             await update.message.reply_text(
                 f"✅ Payment saved, but couldn't add to group.\n"
                 f"Please contact @its_cuteiii\n\n"
@@ -362,6 +364,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 parse_mode=None
             )
     else:
+        logging.error("❌ Save payment failed!")
         await update.message.reply_text(
             "❌ Payment verification failed!\n"
             "Please contact @its_cuteiii",

@@ -15,7 +15,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
-# Force logs to show in Render
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 TOKEN = os.getenv("TOKEN")
@@ -60,20 +59,14 @@ def save_payment(user_id, transaction_id, plan):
         "payment_status": "completed"
     }
     
-    logging.info(f"📝 SENDING TO SUPABASE: {data}")
+    logging.info(f"📝 SENDING: {data}")
     logging.info(f"📝 URL: {url}")
     
     try:
-        response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, json=data, timeout=30)
         logging.info(f"📝 STATUS: {response.status_code}")
         logging.info(f"📝 RESPONSE: {response.text}")
-        
-        if response.status_code == 201:
-            logging.info("✅ Payment saved successfully!")
-            return True
-        else:
-            logging.error(f"❌ Failed with status: {response.status_code}")
-            return False
+        return response.status_code == 201
     except Exception as e:
         logging.error(f"❌ ERROR: {e}")
         return False
@@ -86,11 +79,10 @@ def check_transaction(transaction_id):
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=30)
         logging.info(f"📝 CHECK STATUS: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
-            logging.info(f"📝 FOUND {len(data)} records")
             return len(data) > 0
         return False
     except Exception as e:

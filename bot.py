@@ -4,15 +4,19 @@ import threading
 import asyncio
 from datetime import datetime
 import requests
+import sys
 
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
+# ============ LOGGING SETUP ============
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
+# Force logs to show in Render
+logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
@@ -57,6 +61,7 @@ def save_payment(user_id, transaction_id, plan):
     }
     
     logging.info(f"📝 SENDING TO SUPABASE: {data}")
+    logging.info(f"📝 URL: {url}")
     
     try:
         response = requests.post(url, headers=headers, json=data)

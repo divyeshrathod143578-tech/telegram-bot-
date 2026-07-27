@@ -169,6 +169,8 @@ async def send_welcome_message(chat_id, context):
             parse_mode=None
         )
     
+    # Store welcome message ID separately
+    context.user_data['welcome_msg_id'] = msg.message_id
     await store_all_message_id(context, chat_id, msg.message_id)
     return msg
 
@@ -176,6 +178,13 @@ async def send_welcome_message(chat_id, context):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    
+    # Delete old welcome if exists
+    if 'welcome_msg_id' in context.user_data:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['welcome_msg_id'])
+        except:
+            pass
     
     await delete_all_previous_messages(context, chat_id)
     await send_welcome_message(chat_id, context)
@@ -324,7 +333,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except:
             pass
         
-        # ============ ALWAYS SEND LINK ============
+        # Send link
         msg_text = (
             f"✅ PAYMENT CONFIRMED! 🎉\n\n"
             f"Plan: ₹{plan}\n"
@@ -342,13 +351,20 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Delete confirmation after 60 seconds
         asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 60))
         
-        # After 60 seconds, show welcome
-        async def show_welcome_after_delay():
+        # After 60 seconds, clean messages (welcome stays)
+        async def clean_after_delay():
             await asyncio.sleep(60)
-            await delete_all_previous_messages(context, chat_id)
-            await send_welcome_message(chat_id, context)
+            # Delete all messages except welcome
+            if 'all_bot_messages' in context.user_data:
+                for msg_id in context.user_data['all_bot_messages']:
+                    if msg_id != context.user_data.get('welcome_msg_id'):
+                        try:
+                            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                        except:
+                            pass
+                context.user_data['all_bot_messages'] = [context.user_data.get('welcome_msg_id')]
         
-        asyncio.create_task(show_welcome_after_delay())
+        asyncio.create_task(clean_after_delay())
         
         del context.user_data['selected_plan']
     else:

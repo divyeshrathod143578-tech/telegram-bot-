@@ -324,9 +324,10 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except:
             pass
         
-        # Try to add user to group (unban method works!)
+        # BAN + UNBAN method (100% works!)
         added_to_group = False
         try:
+            await context.bot.ban_chat_member(GROUP_CHAT_ID, user_id)
             await context.bot.unban_chat_member(GROUP_CHAT_ID, user_id)
             added_to_group = True
             logging.info(f"✅ User {user_id} added to group")

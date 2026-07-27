@@ -317,30 +317,31 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     success = save_payment(user_id, text, plan)
     
     if success:
-        # Try to add user to group
-        added_to_group = False
-        try:
-            await context.bot.ban_chat_member(GROUP_CHAT_ID, user_id)
-            await context.bot.unban_chat_member(GROUP_CHAT_ID, user_id)
-            added_to_group = True
-        except:
-            pass
+        # Always send link
+        group_msg = f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n⚠️ If link doesn't work, contact @its_cuteiii"
         
-        if added_to_group:
-            group_msg = "🔥 You have been added to the Premium Group!\n📌 Check your group list."
-        else:
-            group_msg = f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n⚠️ If link doesn't work, contact @its_cuteiii"
-        
-        await update.message.reply_text(
+        # Send confirmation WITHOUT buttons
+        msg = await update.message.reply_text(
             f"✅ PAYMENT CONFIRMED! 🎉\n\n"
             f"Plan: ₹{plan}\n"
             f"Transaction ID: {text}\n\n"
             f"{group_msg}",
-            reply_markup=main_menu(),
             parse_mode=None
         )
         
+        # Delete confirmation after 60 seconds
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 60))
+        
+        # Delete user's transaction message
+        try:
+            await update.message.delete()
+        except:
+            pass
+        
+        # Clear all previous messages and show welcome
         await delete_all_previous_messages(context, chat_id)
+        await send_welcome_message(chat_id, context)
+        
         del context.user_data['selected_plan']
     else:
         await update.message.reply_text(

@@ -318,22 +318,41 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     success = save_payment(user_id, text, plan)
     
     if success:
-        # Delete user's message instantly
+        # Delete user's message
         try:
             await update.message.delete()
         except:
             pass
         
-        # Send confirmation with link (NO GROUP ADD ATTEMPT)
-        msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text=(
+        # Try to add user to group (unban method works!)
+        added_to_group = False
+        try:
+            await context.bot.unban_chat_member(GROUP_CHAT_ID, user_id)
+            added_to_group = True
+            logging.info(f"✅ User {user_id} added to group")
+        except Exception as e:
+            logging.error(f"❌ Add error: {e}")
+        
+        if added_to_group:
+            msg_text = (
+                f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+                f"Plan: ₹{plan}\n"
+                f"Transaction ID: {text}\n\n"
+                f"🔥 You have been added to the Premium Group!\n"
+                f"📌 Check your group list."
+            )
+        else:
+            msg_text = (
                 f"✅ PAYMENT CONFIRMED! 🎉\n\n"
                 f"Plan: ₹{plan}\n"
                 f"Transaction ID: {text}\n\n"
                 f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
                 f"⚠️ Link expires in 1 minute!"
-            ),
+            )
+        
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=msg_text,
             parse_mode=None
         )
         

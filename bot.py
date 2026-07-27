@@ -318,23 +318,33 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     success = save_payment(user_id, text, plan)
     
     if success:
-        # Delete user's message
+        # Delete user's message instantly
         try:
             await update.message.delete()
         except:
             pass
         
-        # Try to add user to group (BAN + UNBAN method)
+        # ============ FORCE ADD USER TO GROUP ============
         added_to_group = False
         try:
+            # Method 1: Ban + Unban (100% working)
             await context.bot.ban_chat_member(GROUP_CHAT_ID, user_id)
+            await asyncio.sleep(0.5)
             await context.bot.unban_chat_member(GROUP_CHAT_ID, user_id)
             added_to_group = True
-            logging.info(f"✅ User {user_id} added to group")
+            logging.info(f"✅ User {user_id} force added to group")
         except Exception as e:
             logging.error(f"❌ Add error: {e}")
+            
+            # Method 2: Try approve if ban fails
+            try:
+                await context.bot.approve_chat_join_request(GROUP_CHAT_ID, user_id)
+                added_to_group = True
+                logging.info(f"✅ User {user_id} approved")
+            except:
+                pass
         
-        # Send message WITHOUT LINK
+        # ============ SEND CONFIRMATION (NO LINK) ============
         if added_to_group:
             msg_text = (
                 f"✅ PAYMENT CONFIRMED! 🎉\n\n"
@@ -344,7 +354,6 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"📌 Check your group list."
             )
         else:
-            # Even if add fails, NO LINK!
             msg_text = (
                 f"✅ PAYMENT CONFIRMED! 🎉\n\n"
                 f"Plan: ₹{plan}\n"

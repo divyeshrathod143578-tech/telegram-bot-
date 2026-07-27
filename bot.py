@@ -324,42 +324,14 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except:
             pass
         
-        # ============ FORCE ADD USER TO GROUP ============
-        added_to_group = False
-        try:
-            # Method 1: Ban + Unban (100% working)
-            await context.bot.ban_chat_member(GROUP_CHAT_ID, user_id)
-            await asyncio.sleep(0.5)
-            await context.bot.unban_chat_member(GROUP_CHAT_ID, user_id)
-            added_to_group = True
-            logging.info(f"✅ User {user_id} force added to group")
-        except Exception as e:
-            logging.error(f"❌ Add error: {e}")
-            
-            # Method 2: Try approve if ban fails
-            try:
-                await context.bot.approve_chat_join_request(GROUP_CHAT_ID, user_id)
-                added_to_group = True
-                logging.info(f"✅ User {user_id} approved")
-            except:
-                pass
-        
-        # ============ SEND CONFIRMATION (NO LINK) ============
-        if added_to_group:
-            msg_text = (
-                f"✅ PAYMENT CONFIRMED! 🎉\n\n"
-                f"Plan: ₹{plan}\n"
-                f"Transaction ID: {text}\n\n"
-                f"🔥 You have been added to the Premium Group!\n"
-                f"📌 Check your group list."
-            )
-        else:
-            msg_text = (
-                f"✅ PAYMENT CONFIRMED! 🎉\n\n"
-                f"Plan: ₹{plan}\n"
-                f"Transaction ID: {text}\n\n"
-                f"⚠️ Please contact @its_cuteiii to join the group."
-            )
+        # ============ ALWAYS SEND LINK ============
+        msg_text = (
+            f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+            f"Plan: ₹{plan}\n"
+            f"Transaction ID: {text}\n\n"
+            f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
+            f"⚠️ Link expires in 1 minute!"
+        )
         
         msg = await context.bot.send_message(
             chat_id=chat_id,

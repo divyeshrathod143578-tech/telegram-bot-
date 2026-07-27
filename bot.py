@@ -58,7 +58,7 @@ def save_payment(user_id, transaction_id, plan):
         "payment_status": "completed"
     }
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=10)
+        response = requests.post(url, headers=headers, json=data, timeout=5)
         return response.status_code == 201
     except:
         return False
@@ -70,7 +70,7 @@ def check_transaction(transaction_id):
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             data = response.json()
             return len(data) > 0
@@ -317,11 +317,18 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     success = save_payment(user_id, text, plan)
     
     if success:
+        # Try to add user to group
+        added_to_group = False
         try:
             await context.bot.ban_chat_member(GROUP_CHAT_ID, user_id)
             await context.bot.unban_chat_member(GROUP_CHAT_ID, user_id)
-            group_msg = "🔥 You have been added to the Premium Group!\n📌 Check your group list."
+            added_to_group = True
         except:
+            pass
+        
+        if added_to_group:
+            group_msg = "🔥 You have been added to the Premium Group!\n📌 Check your group list."
+        else:
             group_msg = f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n⚠️ If link doesn't work, contact @its_cuteiii"
         
         await update.message.reply_text(
@@ -333,9 +340,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
             parse_mode=None
         )
         
-        # Clear old messages except welcome
         await delete_all_previous_messages(context, chat_id)
-        
         del context.user_data['selected_plan']
     else:
         await update.message.reply_text(
@@ -367,7 +372,7 @@ def main():
     app.add_error_handler(error_handler)
     
     logging.info("🤖 Bot is starting...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, poll_interval=0.5)
 
 if __name__ == "__main__":
     main()

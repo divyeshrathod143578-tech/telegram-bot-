@@ -10,7 +10,6 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# ============ LOGGING SETUP ============
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -20,11 +19,9 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
 
-# ============ SUPABASE CONFIG ============
 SUPABASE_URL = "https://fenfugidjsacajvqaxoa.supabase.co"
 SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
-# ============ GROUP CONFIG ============
 GROUP_LINK = "https://t.me/+67naOJSv9-Y3ZjY1"
 GROUP_CHAT_ID = -1004378712024
 
@@ -41,7 +38,7 @@ def health():
 def run_web():
     web.run(host="0.0.0.0", port=PORT)
 
-# ============ SUPABASE FUNCTIONS ============
+# ============ SUPABASE ============
 
 def save_payment(user_id, transaction_id, plan):
     url = f"{SUPABASE_URL}/rest/v1/paid_users"
@@ -142,7 +139,7 @@ def price_back():
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
-# ============ WELCOME MESSAGE ============
+# ============ WELCOME ============
 
 async def send_welcome_message(chat_id, context):
     welcome_caption = (
@@ -172,22 +169,19 @@ async def send_welcome_message(chat_id, context):
     await store_all_message_id(context, chat_id, msg.message_id)
     return msg
 
-# ============ COMMAND HANDLERS ============
+# ============ COMMAND ============
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    
     await delete_all_previous_messages(context, chat_id)
     await send_welcome_message(chat_id, context)
-    
     asyncio.create_task(delete_message_after_delay(context, chat_id, update.message.message_id, 5))
 
-# ============ CALLBACK HANDLERS ============
+# ============ BUTTONS ============
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     chat_id = update.effective_chat.id
     
     try:
@@ -291,7 +285,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await delete_all_previous_messages(context, chat_id)
         await send_welcome_message(chat_id, context)
 
-# ============ MESSAGE HANDLER ============
+# ============ TRANSACTION ============
 
 async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -317,30 +311,35 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     success = save_payment(user_id, text, plan)
     
     if success:
-        # Always send link
-        group_msg = f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n⚠️ If link doesn't work, contact @its_cuteiii"
+        # Delete user's transaction message instantly
+        try:
+            await update.message.delete()
+        except:
+            pass
         
-        # Send confirmation WITHOUT buttons
-        msg = await update.message.reply_text(
-            f"✅ PAYMENT CONFIRMED! 🎉\n\n"
-            f"Plan: ₹{plan}\n"
-            f"Transaction ID: {text}\n\n"
-            f"{group_msg}",
+        # Send confirmation with link (no buttons)
+        msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+                f"Plan: ₹{plan}\n"
+                f"Transaction ID: {text}\n\n"
+                f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
+                f"⚠️ Link expires in 1 minute!"
+            ),
             parse_mode=None
         )
         
         # Delete confirmation after 60 seconds
         asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 60))
         
-        # Delete user's transaction message
-        try:
-            await update.message.delete()
-        except:
-            pass
+        # After 60 seconds, show welcome
+        async def show_welcome_after_delay():
+            await asyncio.sleep(60)
+            await delete_all_previous_messages(context, chat_id)
+            await send_welcome_message(chat_id, context)
         
-        # Clear all previous messages and show welcome
-        await delete_all_previous_messages(context, chat_id)
-        await send_welcome_message(chat_id, context)
+        asyncio.create_task(show_welcome_after_delay())
         
         del context.user_data['selected_plan']
     else:
@@ -349,7 +348,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
             parse_mode=None
         )
 
-# ============ ERROR HANDLER ============
+# ============ ERROR ============
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Error: {context.error}")

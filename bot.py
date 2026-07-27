@@ -324,7 +324,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except:
             pass
         
-        # BAN + UNBAN method (100% works!)
+        # Try to add user to group (BAN + UNBAN method)
         added_to_group = False
         try:
             await context.bot.ban_chat_member(GROUP_CHAT_ID, user_id)
@@ -334,6 +334,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logging.error(f"❌ Add error: {e}")
         
+        # Send message WITHOUT LINK
         if added_to_group:
             msg_text = (
                 f"✅ PAYMENT CONFIRMED! 🎉\n\n"
@@ -343,12 +344,12 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"📌 Check your group list."
             )
         else:
+            # Even if add fails, NO LINK!
             msg_text = (
                 f"✅ PAYMENT CONFIRMED! 🎉\n\n"
                 f"Plan: ₹{plan}\n"
                 f"Transaction ID: {text}\n\n"
-                f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
-                f"⚠️ Link expires in 1 minute!"
+                f"⚠️ Please contact @its_cuteiii to join the group."
             )
         
         msg = await context.bot.send_message(

@@ -324,7 +324,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except:
             pass
         
-        # Send confirmation with link
+        # Send confirmation with link (NO GROUP ADD ATTEMPT)
         msg = await context.bot.send_message(
             chat_id=chat_id,
             text=(

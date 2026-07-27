@@ -20,7 +20,7 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
 
-# ============ SUPABASE CONFIG - NEW ============
+# ============ SUPABASE CONFIG ============
 SUPABASE_URL = "https://fenfugidjsacajvqaxoa.supabase.co"
 SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
@@ -44,7 +44,6 @@ def run_web():
 # ============ SUPABASE FUNCTIONS ============
 
 def save_payment(user_id, transaction_id, plan):
-    """Save payment to Supabase"""
     url = f"{SUPABASE_URL}/rest/v1/paid_users"
     headers = {
         "apikey": SUPABASE_KEY,
@@ -58,37 +57,28 @@ def save_payment(user_id, transaction_id, plan):
         "plan": str(plan),
         "payment_status": "completed"
     }
-    
-    logging.info(f"📝 SENDING: {data}")
-    
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        logging.info(f"📝 STATUS: {response.status_code}")
-        logging.info(f"📝 RESPONSE: {response.text}")
+        response = requests.post(url, headers=headers, json=data, timeout=10)
         return response.status_code == 201
-    except Exception as e:
-        logging.error(f"❌ ERROR: {e}")
+    except:
         return False
 
 def check_transaction(transaction_id):
-    """Check if transaction already exists"""
     url = f"{SUPABASE_URL}/rest/v1/paid_users?transaction_id=eq.{transaction_id}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
     try:
-        response = requests.get(url, headers=headers, timeout=30)
-        logging.info(f"📝 CHECK STATUS: {response.status_code}")
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
             return len(data) > 0
         return False
-    except Exception as e:
-        logging.error(f"❌ CHECK ERROR: {e}")
+    except:
         return False
 
-# ============ AUTO DELETE FUNCTIONS ============
+# ============ AUTO DELETE ============
 
 async def delete_message_after_delay(context, chat_id, message_id, delay=30):
     await asyncio.sleep(delay)
@@ -120,10 +110,10 @@ async def store_all_message_id(context, chat_id, message_id):
 
 def main_menu():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💵 DEMO", callback_data="demo")],
+        [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
         [InlineKeyboardButton("💰 PRICE LIST", callback_data="price")],
-        [InlineKeyboardButton("🛒 CONTACT", callback_data="contact")],
-        [InlineKeyboardButton("📧 ABOUT", callback_data="about")]
+        [InlineKeyboardButton("📞 CONTACT", callback_data="contact")],
+        [InlineKeyboardButton("ℹ️ ABOUT", callback_data="about")]
     ])
 
 def back_menu():
@@ -199,7 +189,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
     
     try:
         await query.message.delete()
@@ -214,7 +203,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=None
         )
         await store_all_message_id(context, chat_id, msg.message_id)
-        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 120))
     
     elif query.data.startswith("pay_"):
         plan = query.data.replace("pay_", "")
@@ -276,7 +265,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             disable_web_page_preview=True
         )
         await store_all_message_id(context, chat_id, msg.message_id)
-        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 120))
     
     elif query.data == "contact":
         msg = await context.bot.send_message(
@@ -286,7 +275,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=None
         )
         await store_all_message_id(context, chat_id, msg.message_id)
-        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 120))
     
     elif query.data == "about":
         msg = await context.bot.send_message(
@@ -296,23 +285,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=None
         )
         await store_all_message_id(context, chat_id, msg.message_id)
-        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 300))
+        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 120))
     
     elif query.data == "back":
         await delete_all_previous_messages(context, chat_id)
         await send_welcome_message(chat_id, context)
 
-# ============ MESSAGE HANDLER FOR TRANSACTION ID ============
+# ============ MESSAGE HANDLER ============
 
 async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle user's transaction ID"""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     text = update.message.text.strip()
     
-    logging.info(f"📝 Received TX: {text} from user {user_id}")
-    
-    # Check if user is in payment mode
     if 'selected_plan' not in context.user_data:
         await update.message.reply_text(
             "❌ Please select a plan first!\n\nClick PRICE LIST → Choose a plan.",
@@ -321,7 +306,6 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
     
-    # Check if already paid
     if check_transaction(text):
         await update.message.reply_text(
             "❌ This Transaction ID is already used!\n\nPlease use a valid ID.",
@@ -329,57 +313,46 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
     
-    # Save to Supabase
     plan = context.user_data['selected_plan']
     success = save_payment(user_id, text, plan)
     
     if success:
-        # Add user to group
         try:
+            await context.bot.ban_chat_member(GROUP_CHAT_ID, user_id)
             await context.bot.unban_chat_member(GROUP_CHAT_ID, user_id)
-            
-            await update.message.reply_text(
-                f"✅ PAYMENT CONFIRMED! 🎉\n\n"
-                f"Plan: ₹{plan}\n"
-                f"Transaction ID: {text}\n\n"
-                f"🔥 You have been added to the Premium Group!\n"
-                f"📌 Check your group list.",
-                reply_markup=main_menu(),
-                parse_mode=None
-            )
-            
-            # Clear payment data
-            del context.user_data['selected_plan']
-            
-        except Exception as e:
-            logging.error(f"❌ Group add error: {e}")
-            await update.message.reply_text(
-                f"✅ Payment saved, but couldn't add to group.\n"
-                f"Please contact @its_cuteiii\n\n"
-                f"Error: {str(e)}",
-                parse_mode=None
-            )
-    else:
-        logging.error("❌ Save payment failed!")
+            group_msg = "🔥 You have been added to the Premium Group!\n📌 Check your group list."
+        except:
+            group_msg = f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n⚠️ If link doesn't work, contact @its_cuteiii"
+        
         await update.message.reply_text(
-            "❌ Payment verification failed!\n"
-            "Please contact @its_cuteiii",
+            f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+            f"Plan: ₹{plan}\n"
+            f"Transaction ID: {text}\n\n"
+            f"{group_msg}",
+            reply_markup=main_menu(),
+            parse_mode=None
+        )
+        
+        # Clear old messages except welcome
+        await delete_all_previous_messages(context, chat_id)
+        
+        del context.user_data['selected_plan']
+    else:
+        await update.message.reply_text(
+            "❌ Payment verification failed!\nPlease contact @its_cuteiii",
             parse_mode=None
         )
 
 # ============ ERROR HANDLER ============
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.error(f"Update {update} caused error {context.error}")
-    
+    logging.error(f"Error: {context.error}")
     if update and update.effective_chat:
-        chat_id = update.effective_chat.id
-        msg = await context.bot.send_message(
-            chat_id=chat_id,
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
             text="❌ An error occurred! Please try again later.",
             parse_mode=None
         )
-        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 10))
 
 # ============ MAIN ============
 

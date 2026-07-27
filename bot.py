@@ -58,7 +58,7 @@ def save_payment(user_id, transaction_id, plan):
         "payment_status": "completed"
     }
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=5)
+        response = requests.post(url, headers=headers, json=data, timeout=30)
         return response.status_code == 201
     except:
         return False
@@ -70,7 +70,7 @@ def check_transaction(transaction_id):
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=30)
         if response.status_code == 200:
             data = response.json()
             return len(data) > 0
@@ -169,7 +169,6 @@ async def send_welcome_message(chat_id, context):
             parse_mode=None
         )
     
-    # Store welcome message ID separately
     context.user_data['welcome_msg_id'] = msg.message_id
     await store_all_message_id(context, chat_id, msg.message_id)
     return msg
@@ -179,7 +178,6 @@ async def send_welcome_message(chat_id, context):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     
-    # Delete old welcome if exists
     if 'welcome_msg_id' in context.user_data:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['welcome_msg_id'])
@@ -327,13 +325,11 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     success = save_payment(user_id, text, plan)
     
     if success:
-        # Delete user's message instantly
         try:
             await update.message.delete()
         except:
             pass
         
-        # Send link
         msg_text = (
             f"✅ PAYMENT CONFIRMED! 🎉\n\n"
             f"Plan: ₹{plan}\n"
@@ -348,13 +344,10 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
             parse_mode=None
         )
         
-        # Delete confirmation after 60 seconds
         asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 60))
         
-        # After 60 seconds, clean messages (welcome stays)
         async def clean_after_delay():
             await asyncio.sleep(60)
-            # Delete all messages except welcome
             if 'all_bot_messages' in context.user_data:
                 for msg_id in context.user_data['all_bot_messages']:
                     if msg_id != context.user_data.get('welcome_msg_id'):
@@ -363,6 +356,7 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         except:
                             pass
                 context.user_data['all_bot_messages'] = [context.user_data.get('welcome_msg_id')]
+            await send_welcome_message(chat_id, context)
         
         asyncio.create_task(clean_after_delay())
         

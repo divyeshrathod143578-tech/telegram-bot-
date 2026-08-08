@@ -4,6 +4,7 @@ import threading
 import asyncio
 import requests
 import sys
+import time
 
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -16,7 +17,7 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
 PORT = 10000
 
-# ============ SUPABASE - FIXED URL ============
+# ============ SUPABASE - SAHI URL ============
 SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"
 SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
@@ -65,9 +66,45 @@ def price_back():
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
+# ============ SUPABASE FUNCTION WITH RETRY ============
+
+def save_payment_with_retry(user_id, transaction_id, plan, retries=3):
+    url = f"{SUPABASE_URL}/rest/v1/paid_users"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    data = {
+        "user_id": str(user_id),
+        "transaction_id": str(transaction_id),
+        "plan": str(plan),
+        "payment_status": "completed"
+    }
+    
+    for attempt in range(retries):
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            if response.status_code == 201:
+                return True
+            else:
+                return False
+        except Exception as e:
+            logging.error(f"Attempt {attempt+1} failed: {e}")
+            if attempt < retries - 1:
+                time.sleep(2)  # Wait 2 seconds before retry
+            else:
+                return False
+    return False
+
 # ============ COMMAND HANDLERS ============
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Clear user_data on start
+    if 'selected_plan' in context.user_data:
+        del context.user_data['selected_plan']
+    
     await update.message.reply_text(
         "👋 Welcome!\n\nI am your Premium Subscription Bot.\n\nChoose an option below:",
         reply_markup=main_menu()
@@ -88,6 +125,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data.startswith("pay_"):
         plan = query.data.replace("pay_", "")
         context.user_data['selected_plan'] = plan
+        logging.info(f"Plan selected: {plan} for user {update.effective_user.id}")
         
         try:
             with open("qr.jpg", "rb") as photo:
@@ -129,57 +167,45 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = update.effective_user.id
     text = update.message.text.strip()
     
+    logging.info(f"Transaction from user {user_id}: {text}")
+    logging.info(f"User data: {context.user_data}")
+    
+    # Check if plan is selected
     if 'selected_plan' not in context.user_data:
         await update.message.reply_text(
-            "❌ Please select a plan first!\n\nClick PRICE LIST → Choose a plan.",
+            "❌ Please select a plan first!\n\n"
+            "Click PRICE LIST → Choose a plan.\n\n"
+            "After selecting a plan, send your Transaction ID.",
             reply_markup=main_menu()
         )
         return
     
     plan = context.user_data['selected_plan']
+    logging.info(f"Saving payment: user={user_id}, plan={plan}, tx={text}")
     
-    # ✅ SAVE PAYMENT
-    url = f"{SUPABASE_URL}/rest/v1/paid_users"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-    }
-    data = {
-        "user_id": str(user_id),
-        "transaction_id": str(text),
-        "plan": str(plan),
-        "payment_status": "completed"
-    }
+    # ✅ SAVE PAYMENT WITH RETRY
+    success = save_payment_with_retry(user_id, text, plan)
     
-    try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
+    if success:
+        try:
+            await update.message.delete()
+        except:
+            pass
         
-        if response.status_code == 201:
-            try:
-                await update.message.delete()
-            except:
-                pass
-            
-            await update.message.reply_text(
-                f"✅ PAYMENT CONFIRMED! 🎉\n\n"
-                f"Plan: ₹{plan}\n"
-                f"Transaction ID: {text}\n\n"
-                f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
-                f"⚠️ Link expires in 1 minute!"
-            )
-            
-            if 'selected_plan' in context.user_data:
-                del context.user_data['selected_plan']
-        else:
-            await update.message.reply_text(
-                f"❌ Payment verification failed!\nError: {response.status_code}\nPlease contact @its_cuteiii",
-                reply_markup=main_menu()
-            )
-    except Exception as e:
         await update.message.reply_text(
-            f"❌ Error: {str(e)}\nPlease contact @its_cuteiii",
+            f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+            f"Plan: ₹{plan}\n"
+            f"Transaction ID: {text}\n\n"
+            f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
+            f"⚠️ Link expires in 1 minute!"
+        )
+        
+        if 'selected_plan' in context.user_data:
+            del context.user_data['selected_plan']
+    else:
+        await update.message.reply_text(
+            "❌ Payment verification failed!\n"
+            "Please try again or contact @its_cuteiii",
             reply_markup=main_menu()
         )
 
@@ -187,6 +213,12 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Error: {context.error}")
+    if update and update.effective_chat:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ An error occurred! Please try again later.",
+            reply_markup=main_menu()
+        )
 
 # ============ MAIN ============
 

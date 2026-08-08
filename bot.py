@@ -26,10 +26,11 @@ def run_web():
 
 # ============ KEYBOARDS ============
 def main_menu():
-    return InlineKeyboardMarkup([
+    keyboard = [
         [InlineKeyboardButton("💰 PRICE LIST", callback_data="price")],
         [InlineKeyboardButton("📞 CONTACT", callback_data="contact")]
-    ])
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 def price_buttons():
     plans = [
@@ -43,14 +44,17 @@ def price_buttons():
         ("💰 ₹349 - Long Videos", "pay_349"),
         ("💰 ₹480 - Unlimited", "pay_480"),
     ]
-    keyboard = [[InlineKeyboardButton(text, callback_data=data)] for text, data in plans]
+    keyboard = []
+    for text, data in plans:
+        keyboard.append([InlineKeyboardButton(text, callback_data=data)])
     keyboard.append([InlineKeyboardButton("🔙 BACK", callback_data="back")])
     return InlineKeyboardMarkup(keyboard)
 
 def back_button():
-    return InlineKeyboardMarkup([
+    keyboard = [
         [InlineKeyboardButton("🔙 BACK", callback_data="back")]
-    ])
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 # ============ DELETE FUNCTIONS ============
 async def delete_message_after_delay(context, chat_id, message_id, delay):
@@ -61,7 +65,7 @@ async def delete_message_after_delay(context, chat_id, message_id, delay):
         pass
 
 async def delete_qr_and_notify(context, chat_id, qr_msg_id):
-    await asyncio.sleep(600)
+    await asyncio.sleep(600)  # 10 minutes
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=qr_msg_id)
         timeout_msg = await context.bot.send_message(
@@ -104,6 +108,7 @@ async def send_welcome(chat_id, context):
 async def start(update, context):
     chat_id = update.effective_chat.id
     
+    # Clear old data
     if 'qr_msg_id' in context.user_data:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['qr_msg_id'])
@@ -237,7 +242,7 @@ def main():
     app.add_error_handler(error_handler)
     
     print("🤖 Bot is running...")
-    app.run_polling(allowed_updates=["message", "callback_query"])
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

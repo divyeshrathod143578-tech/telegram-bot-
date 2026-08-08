@@ -1,3 +1,4 @@
+
 import os
 import logging
 import threading
@@ -35,32 +36,6 @@ def health():
 
 def run_web():
     web.run(host="0.0.0.0", port=PORT)
-
-# ============ SUPABASE FUNCTIONS ============
-
-def save_payment(user_id, transaction_id, plan):
-    url = f"{SUPABASE_URL}/rest/v1/paid_users"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-    }
-    data = {
-        "user_id": str(user_id),
-        "transaction_id": str(transaction_id),
-        "plan": str(plan),
-        "payment_status": "completed"
-    }
-    try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        return response.status_code == 201
-    except:
-        return False
-
-def check_transaction(transaction_id):
-    # ✅ SIMPLE FIX: Always return False
-    return False
 
 # ============ KEYBOARDS ============
 
@@ -149,14 +124,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu()
         )
 
-# ============ MESSAGE HANDLER ============
+# ============ MESSAGE HANDLER - FIXED ============
 
 async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     text = update.message.text.strip()
     
-    # ✅ CHECK: Plan selected?
+    # Agar plan select nahi hai toh
     if 'selected_plan' not in context.user_data:
         await update.message.reply_text(
             "❌ Please select a plan first!\n\nClick PRICE LIST → Choose a plan.",
@@ -166,30 +141,51 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     plan = context.user_data['selected_plan']
     
-    # ✅ SAVE PAYMENT
-    success = save_payment(user_id, text, plan)
+    # ✅ DIRECT SAVE - BINA CHECK KE
+    url = f"{SUPABASE_URL}/rest/v1/paid_users"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    data = {
+        "user_id": str(user_id),
+        "transaction_id": str(text),
+        "plan": str(plan),
+        "payment_status": "completed"
+    }
     
-    if success:
-        # ✅ DELETE USER MESSAGE
-        try:
-            await update.message.delete()
-        except:
-            pass
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
         
-        # ✅ SEND GROUP LINK
+        if response.status_code == 201:
+            # ✅ DELETE USER MESSAGE
+            try:
+                await update.message.delete()
+            except:
+                pass
+            
+            # ✅ SEND GROUP LINK
+            await update.message.reply_text(
+                f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+                f"Plan: ₹{plan}\n"
+                f"Transaction ID: {text}\n\n"
+                f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
+                f"⚠️ Link expires in 1 minute!"
+            )
+            
+            # ✅ CLEAR PLAN
+            if 'selected_plan' in context.user_data:
+                del context.user_data['selected_plan']
+        else:
+            await update.message.reply_text(
+                "❌ Payment verification failed!\nPlease contact @its_cuteiii",
+                reply_markup=main_menu()
+            )
+    except Exception as e:
         await update.message.reply_text(
-            f"✅ PAYMENT CONFIRMED! 🎉\n\n"
-            f"Plan: ₹{plan}\n"
-            f"Transaction ID: {text}\n\n"
-            f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
-            f"⚠️ Link expires in 1 minute!"
-        )
-        
-        # ✅ CLEAR PLAN
-        del context.user_data['selected_plan']
-    else:
-        await update.message.reply_text(
-            "❌ Payment verification failed!\nPlease contact @its_cuteiii",
+            f"❌ Error: {str(e)}\nPlease contact @its_cuteiii",
             reply_markup=main_menu()
         )
 

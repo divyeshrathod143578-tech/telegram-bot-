@@ -1,27 +1,21 @@
 import os
 import logging
-import threading
-import asyncio
 import requests
-import sys
-import time
-
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
 # ============ LOGGING ============
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+logging.basicConfig(level=logging.INFO)
 
 TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
 PORT = 10000
 
-# ============ SUPABASE - SAHI URL ============
+# ============ SUPABASE ============
 SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"
 SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
-# ============ GROUP LINK ============
+# ✅ YAHAN GROUP LINK DAALO
 GROUP_LINK = "https://t.me/+67naOJSv9-Y3ZjY1"
 
 web = Flask(__name__)
@@ -29,10 +23,6 @@ web = Flask(__name__)
 @web.route("/")
 def home():
     return "Bot is Running ✅"
-
-@web.route("/health")
-def health():
-    return "OK", 200
 
 def run_web():
     web.run(host="0.0.0.0", port=PORT)
@@ -66,9 +56,9 @@ def price_back():
         [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
     ])
 
-# ============ SUPABASE FUNCTION WITH RETRY ============
+# ============ SAVE PAYMENT ============
 
-def save_payment_with_retry(user_id, transaction_id, plan, retries=3):
+def save_payment(user_id, transaction_id, plan):
     url = f"{SUPABASE_URL}/rest/v1/paid_users"
     headers = {
         "apikey": SUPABASE_KEY,
@@ -82,37 +72,23 @@ def save_payment_with_retry(user_id, transaction_id, plan, retries=3):
         "plan": str(plan),
         "payment_status": "completed"
     }
-    
-    for attempt in range(retries):
-        try:
-            response = requests.post(url, headers=headers, json=data, timeout=30)
-            if response.status_code == 201:
-                return True
-            else:
-                return False
-        except Exception as e:
-            logging.error(f"Attempt {attempt+1} failed: {e}")
-            if attempt < retries - 1:
-                time.sleep(2)  # Wait 2 seconds before retry
-            else:
-                return False
-    return False
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        return response.status_code in [200, 201]
+    except:
+        return False
 
-# ============ COMMAND HANDLERS ============
+# ============ HANDLERS ============
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Clear user_data on start
+async def start(update, context):
     if 'selected_plan' in context.user_data:
         del context.user_data['selected_plan']
-    
     await update.message.reply_text(
-        "👋 Welcome!\n\nI am your Premium Subscription Bot.\n\nChoose an option below:",
+        "👋 Welcome!\n\nChoose an option:",
         reply_markup=main_menu()
     )
 
-# ============ CALLBACK HANDLERS ============
-
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_handler(update, context):
     query = update.callback_query
     await query.answer()
     
@@ -125,102 +101,68 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data.startswith("pay_"):
         plan = query.data.replace("pay_", "")
         context.user_data['selected_plan'] = plan
-        logging.info(f"Plan selected: {plan} for user {update.effective_user.id}")
         
         try:
             with open("qr.jpg", "rb") as photo:
                 await query.message.delete()
                 await query.message.reply_photo(
                     photo=photo,
-                    caption=(
-                        f"💳 PAYMENT METHOD\n\n"
-                        f"📲 Scan QR Code to pay ₹{plan}\n"
-                        f"⏳ QR valid for 10 minutes\n\n"
-                        f"✅ After payment:\n"
-                        f"Send Transaction ID here\n\n"
-                        f"📝 Example: TXN1234567890\n\n"
-                        f"❌ Fake ID = No Access ❌"
-                    ),
+                    caption=f"💳 Scan QR to pay ₹{plan}\n\nSend Transaction ID after payment:",
                     reply_markup=price_back()
                 )
-        except FileNotFoundError:
+        except:
             await query.message.edit_text(
-                "❌ QR code not found!\nPlease contact @its_cuteiii",
+                f"💳 Pay ₹{plan}\n\nSend Transaction ID:",
                 reply_markup=price_back()
             )
     
     elif query.data == "contact":
         await query.message.edit_text(
-            "📞 CONTACT US\n\n👤 Support: @its_cuteiii",
+            "📞 Contact: @its_cuteiii",
             reply_markup=main_menu()
         )
     
     elif query.data == "back":
         await query.message.edit_text(
-            "👋 Welcome back!\n\nChoose an option:",
+            "👋 Welcome back!",
             reply_markup=main_menu()
         )
 
-# ============ MESSAGE HANDLER ============
-
-async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_transaction(update, context):
     user_id = update.effective_user.id
     text = update.message.text.strip()
     
-    logging.info(f"Transaction from user {user_id}: {text}")
-    logging.info(f"User data: {context.user_data}")
-    
-    # Check if plan is selected
     if 'selected_plan' not in context.user_data:
         await update.message.reply_text(
-            "❌ Please select a plan first!\n\n"
-            "Click PRICE LIST → Choose a plan.\n\n"
-            "After selecting a plan, send your Transaction ID.",
+            "❌ Please select a plan first!",
             reply_markup=main_menu()
         )
         return
     
     plan = context.user_data['selected_plan']
-    logging.info(f"Saving payment: user={user_id}, plan={plan}, tx={text}")
     
-    # ✅ SAVE PAYMENT WITH RETRY
-    success = save_payment_with_retry(user_id, text, plan)
+    # ✅ SAVE TO SUPABASE
+    success = save_payment(user_id, text, plan)
     
     if success:
-        try:
-            await update.message.delete()
-        except:
-            pass
-        
+        await update.message.delete()
         await update.message.reply_text(
             f"✅ PAYMENT CONFIRMED! 🎉\n\n"
             f"Plan: ₹{plan}\n"
-            f"Transaction ID: {text}\n\n"
-            f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
-            f"⚠️ Link expires in 1 minute!"
+            f"Transaction: {text}\n\n"
+            f"🔗 JOIN GROUP:\n{GROUP_LINK}\n\n"
+            f"⚠️ Link valid for 1 minute!"
         )
-        
-        if 'selected_plan' in context.user_data:
-            del context.user_data['selected_plan']
+        del context.user_data['selected_plan']
     else:
         await update.message.reply_text(
-            "❌ Payment verification failed!\n"
-            "Please try again or contact @its_cuteiii",
-            reply_markup=main_menu()
-        )
-
-# ============ ERROR HANDLER ============
-
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.error(f"Error: {context.error}")
-    if update and update.effective_chat:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="❌ An error occurred! Please try again later.",
+            "❌ Payment failed!\nContact @its_cuteiii",
             reply_markup=main_menu()
         )
 
 # ============ MAIN ============
+
+import threading
 
 def main():
     threading.Thread(target=run_web, daemon=True).start()
@@ -229,10 +171,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_transaction))
-    app.add_error_handler(error_handler)
     
-    logging.info("🤖 Bot is starting...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES, poll_interval=0.5)
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

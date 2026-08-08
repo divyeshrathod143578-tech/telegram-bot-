@@ -17,15 +17,15 @@ logging.basicConfig(
 )
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-# ✅ CHANGE 1: TOKEN with default
-TOKEN = os.getenv("TOKEN", "8624130041:AAH6rMNRRL7EzHynkiIXFkUQTPhSaAG2TS0")
+# ============ TOKEN (NEW) ============
+TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
 
-# ✅ CHANGE 2: PORT with int default
-PORT = int(os.environ.get("PORT", 10000))
+# ============ PORT ============
+PORT = int(os.environ.get("PORT", "10000"))
 
 # ============ SUPABASE CONFIG ============
 SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-")
+SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
 # ============ GROUP CONFIG ============
 GROUP_LINK = "https://t.me/+67naOJSv9-Y3ZjY1"

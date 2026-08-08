@@ -78,22 +78,26 @@ async def delete_qr_and_notify(context, chat_id, qr_msg_id):
         pass
 
 # ============ SEND WELCOME ============
-async def send_welcome(chat_id, context, text="👋 Welcome, It's 🦋🌷\n\nI am your Premium Subscription Bot. 😍😍\nI can help you get instant access to our exclusive premium channels.\n\n👀 Click the button to browse our plans!"):
+async def send_welcome(chat_id, context):
+    text = (
+        "👋 Welcome, It's 🦋🌷\n\n"
+        "I am your Premium Subscription Bot. 😍😍\n"
+        "I can help you get instant access to our exclusive premium channels.\n\n"
+        "👀 Click the button to browse our plans!"
+    )
     try:
         with open("welcome.jpg", "rb") as photo:
             return await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=photo,
                 caption=text,
-                reply_markup=main_menu(),
-                parse_mode=None
+                reply_markup=main_menu()
             )
     except:
         return await context.bot.send_message(
             chat_id=chat_id,
             text=text,
-            reply_markup=main_menu(),
-            parse_mode=None
+            reply_markup=main_menu()
         )
 
 # ============ START ============
@@ -131,9 +135,8 @@ async def button_handler(update, context):
             del context.user_data['qr_msg_id']
         
         await query.message.edit_text(
-            "💰 **PRICE LIST**\n\nSelect your plan:",
-            reply_markup=price_buttons(),
-            parse_mode="Markdown"
+            "💰 PRICE LIST\n\nSelect your plan:",
+            reply_markup=price_buttons()
         )
     
     elif query.data.startswith("pay_"):
@@ -153,24 +156,21 @@ async def button_handler(update, context):
                 qr_msg = await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=photo,
-                    caption=f"💳 **Pay ₹{plan}**\n\n⏳ QR expires in 10 minutes\n\n✅ Send Transaction ID after payment:",
-                    reply_markup=back_button(),
-                    parse_mode="Markdown"
+                    caption=f"💳 Pay ₹{plan}\n\n⏳ QR expires in 10 minutes\n\n✅ Send Transaction ID after payment:",
+                    reply_markup=back_button()
                 )
                 context.user_data['qr_msg_id'] = qr_msg.message_id
                 asyncio.create_task(delete_qr_and_notify(context, chat_id, qr_msg.message_id))
         except:
             await query.message.edit_text(
-                f"💳 **Pay ₹{plan}**\n\nSend Transaction ID:",
-                reply_markup=back_button(),
-                parse_mode="Markdown"
+                f"💳 Pay ₹{plan}\n\nSend Transaction ID:",
+                reply_markup=back_button()
             )
     
     elif query.data == "contact":
         await query.message.edit_text(
-            "📞 **CONTACT**\n\n@its_cuteiii",
-            reply_markup=main_menu(),
-            parse_mode="Markdown"
+            "📞 CONTACT\n\n@its_cuteiii",
+            reply_markup=main_menu()
         )
     
     elif query.data == "back":
@@ -182,7 +182,7 @@ async def button_handler(update, context):
             del context.user_data['qr_msg_id']
         
         await query.message.delete()
-        await send_welcome(chat_id, context, "👋 Welcome, It's 🦋🌷\n\nI am your Premium Subscription Bot. 😍😍\nI can help you get instant access to our exclusive premium channels.\n\n👀 Click the button to browse our plans!")
+        await send_welcome(chat_id, context)
 
 # ============ TRANSACTION HANDLER ============
 async def handle_transaction(update, context):
@@ -211,10 +211,9 @@ async def handle_transaction(update, context):
         pass
     
     link_msg = await update.message.reply_text(
-        f"✅ **PAYMENT CONFIRMED!** 🎉\n\n"
-        f"🔗 **JOIN GROUP:**\n{GROUP_LINK}\n\n"
-        f"⚠️ Link expires in 30 seconds!",
-        parse_mode="Markdown"
+        f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+        f"🔗 JOIN GROUP:\n{GROUP_LINK}\n\n"
+        f"⚠️ Link expires in 30 seconds!"
     )
     
     context.user_data['link_msg_id'] = link_msg.message_id

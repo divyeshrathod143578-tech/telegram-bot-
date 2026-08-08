@@ -61,7 +61,7 @@ async def delete_message_after_delay(context, chat_id, message_id, delay):
         pass
 
 async def delete_qr_and_notify(context, chat_id, qr_msg_id):
-    await asyncio.sleep(600)  # 10 minutes
+    await asyncio.sleep(600)
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=qr_msg_id)
         timeout_msg = await context.bot.send_message(
@@ -77,32 +77,29 @@ async def delete_qr_and_notify(context, chat_id, qr_msg_id):
     except:
         pass
 
-# ============ SEND WELCOME WITH PHOTO ============
-async def send_welcome(chat_id, context, text="👋 **Welcome!**\n\nChoose an option below:"):
+# ============ SEND WELCOME ============
+async def send_welcome(chat_id, context, text="👋 Welcome, It's 🦋🌷\n\nI am your Premium Subscription Bot. 😍😍\nI can help you get instant access to our exclusive premium channels.\n\n👀 Click the button to browse our plans!"):
     try:
         with open("welcome.jpg", "rb") as photo:
-            msg = await context.bot.send_photo(
+            return await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=photo,
                 caption=text,
                 reply_markup=main_menu(),
-                parse_mode="Markdown"
+                parse_mode=None
             )
-            return msg
     except:
-        msg = await context.bot.send_message(
+        return await context.bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=main_menu(),
-            parse_mode="Markdown"
+            parse_mode=None
         )
-        return msg
 
 # ============ START ============
 async def start(update, context):
     chat_id = update.effective_chat.id
     
-    # Clear all old messages
     if 'qr_msg_id' in context.user_data:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['qr_msg_id'])
@@ -117,13 +114,6 @@ async def start(update, context):
             pass
         del context.user_data['link_msg_id']
     
-    if 'timeout_msg_id' in context.user_data:
-        try:
-            await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['timeout_msg_id'])
-        except:
-            pass
-        del context.user_data['timeout_msg_id']
-    
     await send_welcome(chat_id, context)
 
 # ============ BUTTON HANDLER ============
@@ -133,7 +123,6 @@ async def button_handler(update, context):
     chat_id = update.effective_chat.id
     
     if query.data == "price":
-        # Delete old QR if exists
         if 'qr_msg_id' in context.user_data:
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['qr_msg_id'])
@@ -151,7 +140,6 @@ async def button_handler(update, context):
         plan = query.data.replace("pay_", "")
         context.user_data['selected_plan'] = plan
         
-        # Delete old QR if exists
         if 'qr_msg_id' in context.user_data:
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['qr_msg_id'])
@@ -162,7 +150,8 @@ async def button_handler(update, context):
         try:
             with open("qr.jpg", "rb") as photo:
                 await query.message.delete()
-                qr_msg = await query.message.reply_photo(
+                qr_msg = await context.bot.send_photo(
+                    chat_id=chat_id,
                     photo=photo,
                     caption=f"💳 **Pay ₹{plan}**\n\n⏳ QR expires in 10 minutes\n\n✅ Send Transaction ID after payment:",
                     reply_markup=back_button(),
@@ -185,7 +174,6 @@ async def button_handler(update, context):
         )
     
     elif query.data == "back":
-        # Delete QR if exists
         if 'qr_msg_id' in context.user_data:
             try:
                 await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['qr_msg_id'])
@@ -194,12 +182,11 @@ async def button_handler(update, context):
             del context.user_data['qr_msg_id']
         
         await query.message.delete()
-        await send_welcome(chat_id, context, "👋 **Welcome back!**")
+        await send_welcome(chat_id, context, "👋 Welcome, It's 🦋🌷\n\nI am your Premium Subscription Bot. 😍😍\nI can help you get instant access to our exclusive premium channels.\n\n👀 Click the button to browse our plans!")
 
 # ============ TRANSACTION HANDLER ============
 async def handle_transaction(update, context):
     chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
     text = update.message.text.strip()
     
     if 'selected_plan' not in context.user_data:
@@ -211,7 +198,6 @@ async def handle_transaction(update, context):
     
     plan = context.user_data['selected_plan']
     
-    # Delete QR if exists
     if 'qr_msg_id' in context.user_data:
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=context.user_data['qr_msg_id'])
@@ -219,13 +205,11 @@ async def handle_transaction(update, context):
             pass
         del context.user_data['qr_msg_id']
     
-    # Delete user message
     try:
         await update.message.delete()
     except:
         pass
     
-    # Send payment confirmation WITH LINK
     link_msg = await update.message.reply_text(
         f"✅ **PAYMENT CONFIRMED!** 🎉\n\n"
         f"🔗 **JOIN GROUP:**\n{GROUP_LINK}\n\n"
@@ -233,13 +217,9 @@ async def handle_transaction(update, context):
         parse_mode="Markdown"
     )
     
-    # Store link message ID
     context.user_data['link_msg_id'] = link_msg.message_id
-    
-    # Delete link message after 30 seconds
     asyncio.create_task(delete_message_after_delay(context, chat_id, link_msg.message_id, 30))
     
-    # Clear plan
     if 'selected_plan' in context.user_data:
         del context.user_data['selected_plan']
 

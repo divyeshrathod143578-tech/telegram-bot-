@@ -21,7 +21,7 @@ TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
 
 # ============ SUPABASE CONFIG ============
-SUPABASE_URL = "https://fenfugidjsacajvqaxoa.supabase.co"
+SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"
 SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
 # ============ GROUP CONFIG ============
@@ -78,6 +78,34 @@ def check_transaction(transaction_id):
     except:
         return False
 
+def get_user_payments(user_id):
+    url = f"{SUPABASE_URL}/rest/v1/paid_users?user_id=eq.{user_id}&order=created_at.desc"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except:
+        return []
+
+def get_all_payments():
+    url = f"{SUPABASE_URL}/rest/v1/paid_users?order=created_at.desc&limit=20"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except:
+        return []
+
 # ============ AUTO DELETE ============
 
 async def delete_message_after_delay(context, chat_id, message_id, delay=30):
@@ -112,6 +140,7 @@ def main_menu():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
         [InlineKeyboardButton("💰 PRICE LIST", callback_data="price")],
+        [InlineKeyboardButton("📊 MY PAYMENTS", callback_data="my_payments")],
         [InlineKeyboardButton("📞 CONTACT", callback_data="contact")],
         [InlineKeyboardButton("ℹ️ ABOUT", callback_data="about")]
     ])
@@ -196,6 +225,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
     
     try:
         await query.message.delete()
@@ -211,6 +241,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await store_all_message_id(context, chat_id, msg.message_id)
         asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 120))
+    
+    elif query.data == "my_payments":
+        payments = get_user_payments(user_id)
+        if payments:
+            msg = "📊 YOUR PAYMENTS:\n\n"
+            for p in payments[:10]:
+                msg += f"💰 ₹{p.get('plan')} | 🧾 {p.get('transaction_id')}\n📅 {p.get('created_at', '')[:10]}\n\n"
+            await context.bot.send_message(chat_id=chat_id, text=msg, reply_markup=back_menu())
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ No payments found!\n\nClick PRICE LIST to buy.",
+                reply_markup=back_menu()
+            )
     
     elif query.data.startswith("pay_"):
         plan = query.data.replace("pay_", "")

@@ -17,8 +17,11 @@ logging.basicConfig(
 )
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-TOKEN = os.getenv("TOKEN")
-PORT = int(os.environ.get("PORT", "10000"))
+# ✅ CHANGE 1: TOKEN with default
+TOKEN = os.getenv("TOKEN", "8624130041:AAH6rMNRRL7EzHynkiIXFkUQTPhSaAG2TS0")
+
+# ✅ CHANGE 2: PORT with int default
+PORT = int(os.environ.get("PORT", 10000))
 
 # ============ SUPABASE CONFIG ============
 SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"

@@ -18,11 +18,11 @@ logging.basicConfig(
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 TOKEN = os.getenv("TOKEN")
-PORT = int(os.environ.get("PORT", 10000))
+PORT = int(os.environ.get("PORT", "10000"))
 
 # ============ SUPABASE CONFIG ============
 SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"
-SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-")
 
 # ============ GROUP CONFIG ============
 GROUP_LINK = "https://t.me/+67naOJSv9-Y3ZjY1"
@@ -80,20 +80,6 @@ def check_transaction(transaction_id):
 
 def get_user_payments(user_id):
     url = f"{SUPABASE_URL}/rest/v1/paid_users?user_id=eq.{user_id}&order=created_at.desc"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}"
-    }
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code == 200:
-            return response.json()
-        return []
-    except:
-        return []
-
-def get_all_payments():
-    url = f"{SUPABASE_URL}/rest/v1/paid_users?order=created_at.desc&limit=20"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}"

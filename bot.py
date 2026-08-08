@@ -26,7 +26,6 @@ SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
 # ============ GROUP CONFIG ============
 GROUP_LINK = "https://t.me/+soK0QlFXTxQ1OTI1"
-GROUP_CHAT_ID = -1004378712024
 
 web = Flask(__name__)
 
@@ -40,28 +39,6 @@ def health():
 
 def run_web():
     web.run(host="0.0.0.0", port=PORT)
-
-# ============ SUPABASE FUNCTIONS ============
-
-def save_payment(user_id, transaction_id, plan):
-    url = f"{SUPABASE_URL}/rest/v1/paid_users"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-    }
-    data = {
-        "user_id": str(user_id),
-        "transaction_id": str(transaction_id),
-        "plan": str(plan),
-        "payment_status": "completed"
-    }
-    try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        return response.status_code == 201
-    except:
-        return False
 
 # ============ AUTO DELETE ============
 
@@ -283,7 +260,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await delete_all_previous_messages(context, chat_id)
         await send_welcome_message(chat_id, context)
 
-# ============ MESSAGE HANDLER ============
+# ============ MESSAGE HANDLER - FIXED ============
 
 async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -299,51 +276,45 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     plan = context.user_data['selected_plan']
-    success = save_payment(user_id, text, plan)
     
-    if success:
-        try:
-            await update.message.delete()
-        except:
-            pass
-        
-        msg_text = (
+    # ✅ DIRECT LINK - BINA SUPABASE CHECK KE!
+    try:
+        await update.message.delete()
+    except:
+        pass
+    
+    # ✅ SEND GROUP LINK DIRECTLY
+    msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text=(
             f"✅ PAYMENT CONFIRMED! 🎉\n\n"
             f"Plan: ₹{plan}\n"
             f"Transaction ID: {text}\n\n"
             f"🔗 Click below to join the group:\n{GROUP_LINK}\n\n"
-            f"⚠️ Link expires in 1 minute!"
-        )
-        
-        msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text=msg_text,
-            parse_mode=None
-        )
-        
-        # ✅ 49 SECOND MEIN DELETE
-        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 49))
-        
-        async def clean_after_delay():
-            await asyncio.sleep(49)
-            if 'all_bot_messages' in context.user_data:
-                for msg_id in context.user_data['all_bot_messages']:
-                    if msg_id != context.user_data.get('welcome_msg_id'):
-                        try:
-                            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-                        except:
-                            pass
-                context.user_data['all_bot_messages'] = [context.user_data.get('welcome_msg_id')]
-            await send_welcome_message(chat_id, context)
-        
-        asyncio.create_task(clean_after_delay())
-        
-        del context.user_data['selected_plan']
-    else:
-        await update.message.reply_text(
-            "❌ Payment verification failed!\nPlease contact @its_cuteiii",
-            parse_mode=None
-        )
+            f"⚠️ Link expires in 49 seconds!"
+        ),
+        parse_mode=None
+    )
+    
+    # ✅ DELETE LINK MESSAGE AFTER 49 SECONDS
+    asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 49))
+    
+    # ✅ CLEANUP AND SHOW WELCOME
+    async def clean_after_delay():
+        await asyncio.sleep(49)
+        if 'all_bot_messages' in context.user_data:
+            for msg_id in context.user_data['all_bot_messages']:
+                if msg_id != context.user_data.get('welcome_msg_id'):
+                    try:
+                        await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                    except:
+                        pass
+            context.user_data['all_bot_messages'] = [context.user_data.get('welcome_msg_id')]
+        await send_welcome_message(chat_id, context)
+    
+    asyncio.create_task(clean_after_delay())
+    
+    del context.user_data['selected_plan']
 
 # ============ ERROR HANDLER ============
 
@@ -370,6 +341,268 @@ def main():
     
     logging.info("🤖 Bot is starting...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, poll_interval=0.5)
+
+if __name__ == "__main__":
+    main()
+import os
+import logging
+import threading
+import asyncio
+from flask import Flask
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+
+logging.basicConfig(level=logging.INFO)
+
+TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
+PORT = 10000
+GROUP_LINK = "https://t.me/+soK0QlFXTxQ1OTI1"
+
+web = Flask(__name__)
+
+@web.route("/")
+def home():
+    return "Bot is Running ✅"
+
+def run_web():
+    web.run(host="0.0.0.0", port=PORT)
+
+# ============ KEYBOARDS ============
+def main_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
+        [InlineKeyboardButton("💰 PRICE LIST", callback_data="price")],
+        [InlineKeyboardButton("📞 CONTACT", callback_data="contact")]
+    ])
+
+def price_buttons():
+    plans = [
+        [InlineKeyboardButton("💰 ₹60 - 399 Videos", callback_data="pay_60")],
+        [InlineKeyboardButton("💰 ₹89 - 499 Videos", callback_data="pay_89")],
+        [InlineKeyboardButton("💰 ₹99 - 799 Videos", callback_data="pay_99")],
+        [InlineKeyboardButton("💰 ₹130 - 1199 Videos", callback_data="pay_130")],
+        [InlineKeyboardButton("💰 ₹149 - 2500 Group", callback_data="pay_149")],
+        [InlineKeyboardButton("💰 ₹199 - 7999 Group", callback_data="pay_199")],
+        [InlineKeyboardButton("💰 ₹249 - 14999 Group", callback_data="pay_249")],
+        [InlineKeyboardButton("💰 ₹349 - Long Videos", callback_data="pay_349")],
+        [InlineKeyboardButton("💰 ₹480 - Unlimited", callback_data="pay_480")],
+        [InlineKeyboardButton("🔙 BACK", callback_data="back")]
+    ]
+    return InlineKeyboardMarkup(plans)
+
+def back_button():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 BACK", callback_data="back")]
+    ])
+
+# ============ WELCOME ============
+async def send_welcome(chat_id, context):
+    text = (
+        "👋 Welcome, It's 🦋🌷\n\n"
+        "I am your Premium Subscription Bot. 😍😍\n"
+        "I can help you get instant access to our exclusive premium channels.\n\n"
+        "👀 Click the button to browse our plans!"
+    )
+    try:
+        with open("welcome.jpg", "rb") as photo:
+            await context.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=main_menu())
+    except:
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=main_menu())
+
+# ============ START ============
+async def start(update, context):
+    await send_welcome(update.effective_chat.id, context)
+
+# ============ BUTTON HANDLER ============
+async def button_handler(update, context):
+    query = update.callback_query
+    await query.answer()
+    chat_id = update.effective_chat.id
+
+    if query.data == "demo":
+        await query.message.reply_text("🎬 DEMO LINK:\nhttps://t.me/+gywxm8qaCkIzYzI1")
+
+    elif query.data == "price":
+        await query.message.edit_text("💰 PRICE LIST\n\nSelect your plan:", reply_markup=price_buttons())
+
+    elif query.data.startswith("pay_"):
+        plan = query.data.replace("pay_", "")
+        context.user_data['selected_plan'] = plan
+        try:
+            with open("qr.jpg", "rb") as photo:
+                await query.message.delete()
+                await query.message.reply_photo(photo=photo, caption=f"💳 Pay ₹{plan}\n\nSend Transaction ID:", reply_markup=back_button())
+        except:
+            await query.message.edit_text(f"💳 Pay ₹{plan}\n\nSend Transaction ID:", reply_markup=back_button())
+
+    elif query.data == "contact":
+        await query.message.reply_text("📞 Contact: @its_cuteiii")
+
+    elif query.data == "back":
+        await query.message.delete()
+        await send_welcome(chat_id, context)
+
+# ============ TRANSACTION → DIRECT LINK ============
+async def handle_transaction(update, context):
+    chat_id = update.effective_chat.id
+    text = update.message.text.strip()
+
+    if 'selected_plan' not in context.user_data:
+        await update.message.reply_text("❌ Select a plan first!", reply_markup=main_menu())
+        return
+
+    plan = context.user_data['selected_plan']
+    await update.message.delete()
+
+    await update.message.reply_text(
+        f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+        f"Plan: ₹{plan}\n"
+        f"Transaction ID: {text}\n\n"
+        f"🔗 JOIN GROUP:\n{GROUP_LINK}\n\n"
+        f"⚠️ This message will self-destruct in 49 seconds."
+    )
+
+    del context.user_data['selected_plan']
+
+# ============ MAIN ============
+def main():
+    threading.Thread(target=run_web, daemon=True).start()
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_transaction))
+    print("🤖 Bot is running...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
+import os
+import logging
+import threading
+from flask import Flask
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+
+logging.basicConfig(level=logging.INFO)
+
+TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
+PORT = 10000
+GROUP_LINK = "https://t.me/+soK0QlFXTxQ1OTI1"
+
+web = Flask(__name__)
+
+@web.route("/")
+def home():
+    return "Bot is Running ✅"
+
+def run_web():
+    web.run(host="0.0.0.0", port=PORT)
+
+# ============ KEYBOARDS ============
+def main_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎬 DEMO", callback_data="demo")],
+        [InlineKeyboardButton("💰 PRICE LIST", callback_data="price")],
+        [InlineKeyboardButton("📞 CONTACT", callback_data="contact")]
+    ])
+
+def price_buttons():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💰 ₹60 - 399 Videos", callback_data="pay_60")],
+        [InlineKeyboardButton("💰 ₹89 - 499 Videos", callback_data="pay_89")],
+        [InlineKeyboardButton("💰 ₹99 - 799 Videos", callback_data="pay_99")],
+        [InlineKeyboardButton("💰 ₹130 - 1199 Videos", callback_data="pay_130")],
+        [InlineKeyboardButton("💰 ₹149 - 2500 Group", callback_data="pay_149")],
+        [InlineKeyboardButton("💰 ₹199 - 7999 Group", callback_data="pay_199")],
+        [InlineKeyboardButton("💰 ₹249 - 14999 Group", callback_data="pay_249")],
+        [InlineKeyboardButton("💰 ₹349 - Long Videos", callback_data="pay_349")],
+        [InlineKeyboardButton("💰 ₹480 - Unlimited", callback_data="pay_480")],
+        [InlineKeyboardButton("🔙 BACK", callback_data="back")]
+    ])
+
+def back_button():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 BACK", callback_data="back")]
+    ])
+
+# ============ WELCOME ============
+async def send_welcome(chat_id, context):
+    text = (
+        "👋 Welcome, It's 🦋🌷\n\n"
+        "I am your Premium Subscription Bot. 😍😍\n"
+        "I can help you get instant access to our exclusive premium channels.\n\n"
+        "👀 Click the button to browse our plans!"
+    )
+    try:
+        with open("welcome.jpg", "rb") as photo:
+            await context.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=main_menu())
+    except:
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=main_menu())
+
+# ============ START ============
+async def start(update, context):
+    await send_welcome(update.effective_chat.id, context)
+
+# ============ BUTTON HANDLER ============
+async def button_handler(update, context):
+    query = update.callback_query
+    await query.answer()
+    chat_id = update.effective_chat.id
+
+    if query.data == "demo":
+        await query.message.reply_text("🎬 DEMO LINK:\nhttps://t.me/+gywxm8qaCkIzYzI1")
+
+    elif query.data == "price":
+        await query.message.edit_text("💰 PRICE LIST\n\nSelect your plan:", reply_markup=price_buttons())
+
+    elif query.data.startswith("pay_"):
+        plan = query.data.replace("pay_", "")
+        context.user_data['selected_plan'] = plan
+        try:
+            with open("qr.jpg", "rb") as photo:
+                await query.message.delete()
+                await query.message.reply_photo(photo=photo, caption=f"💳 Pay ₹{plan}\n\nSend Transaction ID:", reply_markup=back_button())
+        except:
+            await query.message.edit_text(f"💳 Pay ₹{plan}\n\nSend Transaction ID:", reply_markup=back_button())
+
+    elif query.data == "contact":
+        await query.message.reply_text("📞 Contact: @its_cuteiii")
+
+    elif query.data == "back":
+        await query.message.delete()
+        await send_welcome(chat_id, context)
+
+# ============ TRANSACTION → DIRECT LINK ============
+async def handle_transaction(update, context):
+    chat_id = update.effective_chat.id
+    text = update.message.text.strip()
+
+    if 'selected_plan' not in context.user_data:
+        await update.message.reply_text("❌ Select a plan first!", reply_markup=main_menu())
+        return
+
+    plan = context.user_data['selected_plan']
+    await update.message.delete()
+
+    await update.message.reply_text(
+        f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+        f"Plan: ₹{plan}\n"
+        f"Transaction ID: {text}\n\n"
+        f"🔗 JOIN GROUP:\n{GROUP_LINK}\n\n"
+        f"⚠️ This message will self-destruct in 49 seconds."
+    )
+
+    del context.user_data['selected_plan']
+
+# ============ MAIN ============
+def main():
+    threading.Thread(target=run_web, daemon=True).start()
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_transaction))
+    print("🤖 Bot is running...")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

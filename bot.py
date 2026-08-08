@@ -1,12 +1,8 @@
 import os
-import logging
 import requests
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-
-# ============ LOGGING ============
-logging.basicConfig(level=logging.INFO)
 
 TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
 PORT = 10000
@@ -15,8 +11,8 @@ PORT = 10000
 SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"
 SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
 
-# ✅ YAHAN GROUP LINK DAALO
-GROUP_LINK = "https://t.me/+67naOJSv9-Y3ZjY1"
+# ✅ GROUP LINK
+GROUP_LINK = "https://t.me/+soK0QlFXTxQ1OTI1"
 
 web = Flask(__name__)
 
@@ -51,9 +47,9 @@ def price_buttons():
     keyboard.append([InlineKeyboardButton("🔙 BACK", callback_data="back")])
     return InlineKeyboardMarkup(keyboard)
 
-def price_back():
+def back_button():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔙 BACK TO PRICES", callback_data="price")]
+        [InlineKeyboardButton("🔙 BACK", callback_data="back")]
     ])
 
 # ============ SAVE PAYMENT ============
@@ -63,8 +59,7 @@ def save_payment(user_id, transaction_id, plan):
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
+        "Content-Type": "application/json"
     }
     data = {
         "user_id": str(user_id),
@@ -73,16 +68,18 @@ def save_payment(user_id, transaction_id, plan):
         "payment_status": "completed"
     }
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        return response.status_code in [200, 201]
+        r = requests.post(url, headers=headers, json=data, timeout=30)
+        return r.status_code in [200, 201]
     except:
         return False
 
 # ============ HANDLERS ============
 
 async def start(update, context):
+    # Clear old data
     if 'selected_plan' in context.user_data:
         del context.user_data['selected_plan']
+    
     await update.message.reply_text(
         "👋 Welcome!\n\nChoose an option:",
         reply_markup=main_menu()
@@ -108,12 +105,12 @@ async def button_handler(update, context):
                 await query.message.reply_photo(
                     photo=photo,
                     caption=f"💳 Scan QR to pay ₹{plan}\n\nSend Transaction ID after payment:",
-                    reply_markup=price_back()
+                    reply_markup=back_button()
                 )
         except:
             await query.message.edit_text(
                 f"💳 Pay ₹{plan}\n\nSend Transaction ID:",
-                reply_markup=price_back()
+                reply_markup=back_button()
             )
     
     elif query.data == "contact":
@@ -132,6 +129,7 @@ async def handle_transaction(update, context):
     user_id = update.effective_user.id
     text = update.message.text.strip()
     
+    # Check if plan selected
     if 'selected_plan' not in context.user_data:
         await update.message.reply_text(
             "❌ Please select a plan first!",
@@ -141,11 +139,15 @@ async def handle_transaction(update, context):
     
     plan = context.user_data['selected_plan']
     
-    # ✅ SAVE TO SUPABASE
+    # ✅ SAVE PAYMENT
     success = save_payment(user_id, text, plan)
     
     if success:
-        await update.message.delete()
+        try:
+            await update.message.delete()
+        except:
+            pass
+        
         await update.message.reply_text(
             f"✅ PAYMENT CONFIRMED! 🎉\n\n"
             f"Plan: ₹{plan}\n"
@@ -153,7 +155,10 @@ async def handle_transaction(update, context):
             f"🔗 JOIN GROUP:\n{GROUP_LINK}\n\n"
             f"⚠️ Link valid for 1 minute!"
         )
-        del context.user_data['selected_plan']
+        
+        # Clear selected plan
+        if 'selected_plan' in context.user_data:
+            del context.user_data['selected_plan']
     else:
         await update.message.reply_text(
             "❌ Payment failed!\nContact @its_cuteiii",
@@ -172,6 +177,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_transaction))
     
+    print("🤖 Bot is running!")
     app.run_polling()
 
 if __name__ == "__main__":

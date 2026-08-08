@@ -1,19 +1,21 @@
 import os
 import requests
+import logging
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
+# ============ LOGGING ============
+logging.basicConfig(level=logging.INFO)
+
+# ============ TOKEN ============
 TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
 PORT = 10000
 
-# ============ SUPABASE ============
-SUPABASE_URL = "https://fenfugidjisacajvqaxoa.supabase.co"
-SUPABASE_KEY = "sb_publishable_5eO5_0miaJnq4Ia296cSqw_CXJOE-8-"
-
-# ✅ GROUP LINK
+# ============ GROUP LINK ============
 GROUP_LINK = "https://t.me/+soK0QlFXTxQ1OTI1"
 
+# ============ FLASK APP ============
 web = Flask(__name__)
 
 @web.route("/")
@@ -52,36 +54,14 @@ def back_button():
         [InlineKeyboardButton("🔙 BACK", callback_data="back")]
     ])
 
-# ============ SAVE PAYMENT ============
-
-def save_payment(user_id, transaction_id, plan):
-    url = f"{SUPABASE_URL}/rest/v1/paid_users"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "user_id": str(user_id),
-        "transaction_id": str(transaction_id),
-        "plan": str(plan),
-        "payment_status": "completed"
-    }
-    try:
-        r = requests.post(url, headers=headers, json=data, timeout=30)
-        return r.status_code in [200, 201]
-    except:
-        return False
-
 # ============ HANDLERS ============
 
 async def start(update, context):
-    # Clear old data
     if 'selected_plan' in context.user_data:
         del context.user_data['selected_plan']
     
     await update.message.reply_text(
-        "👋 Welcome!\n\nChoose an option:",
+        "👋 Welcome!\n\nI am your Premium Subscription Bot.\n\nChoose an option below:",
         reply_markup=main_menu()
     )
 
@@ -104,24 +84,24 @@ async def button_handler(update, context):
                 await query.message.delete()
                 await query.message.reply_photo(
                     photo=photo,
-                    caption=f"💳 Scan QR to pay ₹{plan}\n\nSend Transaction ID after payment:",
+                    caption=f"💳 Scan QR Code to pay ₹{plan}\n\n✅ After payment, send Transaction ID here:",
                     reply_markup=back_button()
                 )
-        except:
+        except FileNotFoundError:
             await query.message.edit_text(
-                f"💳 Pay ₹{plan}\n\nSend Transaction ID:",
+                f"💳 Pay ₹{plan}\n\nPlease send your Transaction ID after payment:",
                 reply_markup=back_button()
             )
     
     elif query.data == "contact":
         await query.message.edit_text(
-            "📞 Contact: @its_cuteiii",
+            "📞 CONTACT US\n\n👤 Support: @its_cuteiii",
             reply_markup=main_menu()
         )
     
     elif query.data == "back":
         await query.message.edit_text(
-            "👋 Welcome back!",
+            "👋 Welcome back!\n\nChoose an option:",
             reply_markup=main_menu()
         )
 
@@ -129,56 +109,58 @@ async def handle_transaction(update, context):
     user_id = update.effective_user.id
     text = update.message.text.strip()
     
-    # Check if plan selected
+    # Check if plan is selected
     if 'selected_plan' not in context.user_data:
         await update.message.reply_text(
-            "❌ Please select a plan first!",
+            "❌ Please select a plan first!\n\nClick PRICE LIST → Choose a plan.",
             reply_markup=main_menu()
         )
         return
     
     plan = context.user_data['selected_plan']
     
-    # ✅ SAVE PAYMENT
-    success = save_payment(user_id, text, plan)
+    # ✅ DIRECTLY SEND GROUP LINK - NO SUPABASE CHECK!
+    try:
+        await update.message.delete()
+    except:
+        pass
     
-    if success:
-        try:
-            await update.message.delete()
-        except:
-            pass
-        
-        await update.message.reply_text(
-            f"✅ PAYMENT CONFIRMED! 🎉\n\n"
-            f"Plan: ₹{plan}\n"
-            f"Transaction: {text}\n\n"
-            f"🔗 JOIN GROUP:\n{GROUP_LINK}\n\n"
-            f"⚠️ Link valid for 1 minute!"
-        )
-        
-        # Clear selected plan
-        if 'selected_plan' in context.user_data:
-            del context.user_data['selected_plan']
-    else:
-        await update.message.reply_text(
-            "❌ Payment failed!\nContact @its_cuteiii",
-            reply_markup=main_menu()
-        )
+    await update.message.reply_text(
+        f"✅ PAYMENT CONFIRMED! 🎉\n\n"
+        f"💰 Plan: ₹{plan}\n"
+        f"🧾 Transaction ID: {text}\n\n"
+        f"🔗 **JOIN GROUP:**\n{GROUP_LINK}\n\n"
+        f"⚠️ Link is valid for 1 minute!"
+    )
+    
+    # Clear selected plan
+    if 'selected_plan' in context.user_data:
+        del context.user_data['selected_plan']
+
+# ============ ERROR HANDLER ============
+
+async def error_handler(update, update2, context):
+    logging.error(f"Error: {context.error}")
 
 # ============ MAIN ============
 
 import threading
 
 def main():
+    # Start Flask server
     threading.Thread(target=run_web, daemon=True).start()
     
+    # Create bot application
     app = Application.builder().token(TOKEN).build()
+    
+    # Add handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_transaction))
+    app.add_error_handler(error_handler)
     
-    print("🤖 Bot is running!")
-    app.run_polling()
+    logging.info("🤖 Bot is starting...")
+    app.run_polling(allowed_updates=["message", "callback_query"])
 
 if __name__ == "__main__":
     main()

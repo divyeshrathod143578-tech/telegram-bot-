@@ -19,7 +19,7 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 TOKEN = "8624130041:AAEG-IuDfZ-hYnk3-SaSImGbWVpTzFuY09U"
 
-# ✅ FIXED - DIRECT PORT VALUE
+# ============ PORT ============
 PORT = 10000
 
 # ============ SUPABASE CONFIG ============
@@ -65,20 +65,9 @@ def save_payment(user_id, transaction_id, plan):
     except:
         return False
 
+# ✅ YAHAN CHANGE KIYA - Always returns False
 def check_transaction(transaction_id):
-    url = f"{SUPABASE_URL}/rest/v1/paid_users?transaction_id=eq.{transaction_id}"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}"
-    }
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            return len(data) > 0
-        return False
-    except:
-        return False
+    return False
 
 def get_user_payments(user_id):
     url = f"{SUPABASE_URL}/rest/v1/paid_users?user_id=eq.{user_id}&order=created_at.desc"
@@ -345,13 +334,14 @@ async def handle_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
     
-    if check_transaction(text):
-        msg = await update.message.reply_text(
-            "❌ This Transaction ID is already used!\n\nPlease use a valid ID.",
-            parse_mode=None
-        )
-        asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 30))
-        return
+    # ✅ Transaction check removed - Always allow
+    # if check_transaction(text):
+    #     msg = await update.message.reply_text(
+    #         "❌ This Transaction ID is already used!\n\nPlease use a valid ID.",
+    #         parse_mode=None
+    #     )
+    #     asyncio.create_task(delete_message_after_delay(context, chat_id, msg.message_id, 30))
+    #     return
     
     plan = context.user_data['selected_plan']
     success = save_payment(user_id, text, plan)
